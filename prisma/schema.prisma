@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Employee {
+  id              String    @id @default(uuid())
+  employeeCode    String    @unique
+  fullName        String
+  email           String    @unique
+  hireDate        DateTime
+  terminationDate DateTime?
+  costCenter      String
+  supervisorName  String
+  supervisorEmail String
+  position        String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  vacationRequests    VacationRequest[]
+  earlyReturnRequests EarlyReturnRequest[]
+  vacationAccruals    VacationAccrual[]
+  biometricRecords    BiometricRecord[]
+}
+
+model VacationRequest {
+  id                    String    @id @default(uuid())
+  employeeId            String
+  employeeName          String
+  employeeCode          String
+  employeeEmail         String
+  supervisorName        String
+  supervisorEmail       String
+  dateFrom              DateTime
+  dateTo                DateTime
+  totalDays             Int
+  status                String    @default("PENDIENTE")
+  currentApprovalLevel  Int       @default(0)
+  powerAutomateFlowId   String?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  employee            Employee             @relation(fields: [employeeId], references: [id])
+  approvalRecords     ApprovalRecord[]
+  vacationConsumptions VacationConsumption[]
+  earlyReturnRequests EarlyReturnRequest[]
+}
+
+model EarlyReturnRequest {
+  id                      String   @id @default(uuid())
+  vacationRequestId       String
+  employeeId              String
+  returnDate              DateTime
+  employeeJustification   String
+  approverJustification   String   @default("")
+  status                  String   @default("PENDIENTE")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  vacationRequest VacationRequest @relation(fields: [vacationRequestId], references: [id])
+  employee        Employee        @relation(fields: [employeeId], references: [id])
+  approvalRecords ApprovalRecord[]
+}
+
+model VacationAccrual {
+  id                String   @id @default(uuid())
+  employeeId        String
+  accrualYear       Int
+  accrualStartDate  DateTime
+  accrualEndDate    DateTime
+  monthlyRate       Float    @default(2.5)
+  monthsAccrued     Int      @default(0)
+  totalDaysAccrued  Float    @default(0)
+  totalDaysConsumed Float    @default(0)
+  remainingBalance  Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  employee     Employee              @relation(fields: [employeeId], references: [id])
+  consumptions VacationConsumption[]
+
+  @@unique([employeeId, accrualYear])
+}
+
+model VacationConsumption {
+  id                String   @id @default(uuid())
+  accrualId         String
+  vacationRequestId String
+  daysConsumed      Float
+  consumedAt        DateTime @default(now())
+
+  accrual         VacationAccrual @relation(fields: [accrualId], references: [id])
+  vacationRequest VacationRequest @relation(fields: [vacationRequestId], references: [id])
+}
+
+model ApprovalRecord {
+  id                    String    @id @default(uuid())
+  requestId             String
+  requestType           String
+  approverEmail         String
+  approverName          String
+  level                 Int
+  status                String    @default("PENDIENTE")
+  decidedAt             DateTime?
+  comments              String?
+  createdAt             DateTime  @default(now())
+
+  vacationRequest     VacationRequest?     @relation(fields: [requestId], references: [id])
+  earlyReturnRequest  EarlyReturnRequest?  @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
+}
+
+model SystemConfiguration {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String
+  updatedAt   DateTime @updatedAt
+  updatedBy   String   @default("system")
+}
+
+model BiometricRecord {
+  id           String    @id @default(uuid())
+  employeeId   String
+  employeeCode String
+  date         DateTime
+  clockIn      DateTime?
+  clockOut     DateTime?
+  absenceType  String?
+  source       String    @default("BIOMETRICO")
+  importedAt   DateTime  @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, date])
+}
