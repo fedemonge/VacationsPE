@@ -11,14 +11,42 @@ interface Employee {
   supervisorEmail: string;
 }
 
+interface VacationRequest {
+  id: string;
+  employeeName: string;
+  employeeCode: string;
+  dateFrom: string;
+  dateTo: string;
+  totalDays: number;
+  status: string;
+  createdAt: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDIENTE: "Pendiente",
+  NIVEL_1_PENDIENTE: "Nivel 1 Pendiente",
+  NIVEL_2_PENDIENTE: "Nivel 2 Pendiente",
+  NIVEL_3_PENDIENTE: "Nivel 3 Pendiente",
+  APROBADA: "Aprobada",
+  RECHAZADA: "Rechazada",
+  CANCELADA: "Cancelada",
+};
+
 export default function SolicitudesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null
+  );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Existing requests
+  const [requests, setRequests] = useState<VacationRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
   const minDate = getMinDate();
 
@@ -27,7 +55,17 @@ export default function SolicitudesPage() {
       .then((r) => r.json())
       .then((data) => setEmployees(data.employees || []))
       .catch(() => setError("Error al cargar empleados"));
+    loadRequests();
   }, []);
+
+  function loadRequests() {
+    setRequestsLoading(true);
+    fetch("/api/solicitudes")
+      .then((r) => r.json())
+      .then((data) => setRequests(data.solicitudes || []))
+      .catch(() => {})
+      .finally(() => setRequestsLoading(false));
+  }
 
   function getMinDate(): string {
     const d = new Date();
@@ -68,6 +106,7 @@ export default function SolicitudesPage() {
         setSelectedEmployee(null);
         setDateFrom("");
         setDateTo("");
+        loadRequests();
       }
     } catch {
       setError("Error de conexión al servidor");
@@ -76,8 +115,60 @@ export default function SolicitudesPage() {
     }
   }
 
+  async function handleWithdraw(requestId: string) {
+    if (
+      !confirm(
+        "¿Está seguro de retirar esta solicitud? El saldo de vacaciones será restaurado."
+      )
+    )
+      return;
+
+    setWithdrawing(requestId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch("/api/solicitudes/retirar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          reason: "Retirada voluntaria por el solicitante",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Error al retirar la solicitud");
+      } else {
+        setSuccess(data.message);
+        loadRequests();
+      }
+    } catch {
+      setError("Error de conexión al servidor");
+    } finally {
+      setWithdrawing(null);
+    }
+  }
+
+  function canWithdraw(req: VacationRequest): boolean {
+    if (["CANCELADA", "RECHAZADA"].includes(req.status)) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(req.dateFrom);
+    startDate.setHours(0, 0, 0, 0);
+    return startDate > today;
+  }
+
+  function getStatusBadge(status: string): string {
+    if (status === "APROBADA") return "badge-success";
+    if (status === "RECHAZADA" || status === "CANCELADA") return "badge-error";
+    return "badge-warning";
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">
         Solicitud de Vacaciones
       </h1>
@@ -96,7 +187,7 @@ export default function SolicitudesPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
+      <form onSubmit={handleSubmit} className="card space-y-6 mb-8">
         {/* Employee Selector */}
         <div>
           <label className="label-field">Empleado</label>
@@ -205,7 +296,8 @@ export default function SolicitudesPage() {
               Días solicitados:{" "}
               <span className="text-woden-primary font-bold text-lg">
                 {Math.ceil(
-                  (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) /
+                  (new Date(dateTo).getTime() -
+                    new Date(dateFrom).getTime()) /
                     (1000 * 60 * 60 * 24) +
                     1
                 )}
@@ -223,6 +315,71 @@ export default function SolicitudesPage() {
           {loading ? "Enviando solicitud..." : "Enviar Solicitud de Vacaciones"}
         </button>
       </form>
+
+      {/* Existing Requests */}
+      <h2 className="text-xl font-bold text-gray-900 mb-4">
+        Solicitudes Existentes
+      </h2>
+
+      {requestsLoading ? (
+        <div className="card text-center text-gray-400">Cargando...</div>
+      ) : requests.length === 0 ? (
+        <div className="card text-center text-gray-400">
+          No hay solicitudes registradas
+        </div>
+      ) : (
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="table-header">Empleado</th>
+                <th className="table-header">Periodo</th>
+                <th className="table-header">Días</th>
+                <th className="table-header">Estado</th>
+                <th className="table-header">Solicitado</th>
+                <th className="table-header">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((req) => (
+                <tr key={req.id} className="hover:bg-woden-primary-lighter">
+                  <td className="table-cell text-sm">
+                    {req.employeeCode} - {req.employeeName}
+                  </td>
+                  <td className="table-cell text-sm">
+                    {new Date(req.dateFrom).toLocaleDateString("es-PE")} -{" "}
+                    {new Date(req.dateTo).toLocaleDateString("es-PE")}
+                  </td>
+                  <td className="table-cell text-sm text-center">
+                    {req.totalDays}
+                  </td>
+                  <td className="table-cell">
+                    <span className={getStatusBadge(req.status)}>
+                      {STATUS_LABELS[req.status] || req.status}
+                    </span>
+                  </td>
+                  <td className="table-cell text-xs text-gray-500">
+                    {new Date(req.createdAt).toLocaleDateString("es-PE")}
+                  </td>
+                  <td className="table-cell">
+                    {canWithdraw(req) ? (
+                      <button
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50"
+                        onClick={() => handleWithdraw(req.id)}
+                        disabled={withdrawing === req.id}
+                      >
+                        {withdrawing === req.id ? "Retirando..." : "Retirar"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

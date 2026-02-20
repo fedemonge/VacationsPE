@@ -26,6 +26,7 @@ model Employee {
   earlyReturnRequests EarlyReturnRequest[]
   vacationAccruals    VacationAccrual[]
   biometricRecords    BiometricRecord[]
+  balanceAdjustments  BalanceAdjustment[]
 }
 
 model VacationRequest {
@@ -125,6 +126,23 @@ model SystemConfiguration {
   description String
   updatedAt   DateTime @updatedAt
   updatedBy   String   @default("system")
+}
+
+model BalanceAdjustment {
+  id            String   @id @default(uuid())
+  employeeId    String
+  accrualYear   Int
+  adjustmentType String  // CARGA_INICIAL | AJUSTE_MANUAL | CORRECCION
+  previousValue Float
+  newValue      Float
+  daysDelta     Float    // newValue - previousValue
+  reason        String
+  adjustedBy    String   // email of who made the adjustment
+  createdAt     DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
 }
 
 model BiometricRecord {

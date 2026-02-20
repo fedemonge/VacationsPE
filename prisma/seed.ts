@@ -12,6 +12,11 @@ async function main() {
     { key: "POWER_AUTOMATE_WEBHOOK", value: "https://prod-xx.westus.logic.azure.com/workflows/...", description: "URL del webhook de Power Automate" },
     { key: "DIAS_ALERTA_RETRASO", value: "3", description: "Días hábiles para alerta de retraso" },
     { key: "DIAS_CANCELACION_AUTO", value: "7", description: "Días antes de inicio para cancelación automática" },
+    // User Roles
+    { key: "USER_ROLE_admin@empresa.com.pe", value: "ADMINISTRADOR", description: "Rol: Administrador del sistema" },
+    { key: "USER_ROLE_gerente@empresa.com.pe", value: "GERENTE_PAIS", description: "Rol: Gerente País (aprobador nivel 3)" },
+    { key: "USER_ROLE_rrhh@empresa.com.pe", value: "RRHH", description: "Rol: Analista de Recursos Humanos (aprobador nivel 2)" },
+    { key: "USER_ROLE_ana.torres@empresa.com.pe", value: "SUPERVISOR", description: "Rol: Supervisor (aprobador nivel 1)" },
   ];
 
   for (const config of configs) {

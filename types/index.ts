@@ -51,3 +51,53 @@ export interface EmployeeBalance {
   totalAvailable: number;
   periods: BalancePeriod[];
 }
+
+export type UserRole =
+  | "USUARIO"
+  | "ADMINISTRADOR"
+  | "SUPERVISOR"
+  | "GERENTE_PAIS"
+  | "RRHH";
+
+export type AdjustmentType =
+  | "CARGA_INICIAL"
+  | "AJUSTE_MANUAL"
+  | "CORRECCION";
+
+// Role → allowed routes mapping
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  USUARIO: ["/solicitudes", "/retorno-anticipado"],
+  SUPERVISOR: [
+    "/solicitudes",
+    "/retorno-anticipado",
+    "/panel/aprobaciones",
+    "/panel/saldos",
+    "/panel/reportes",
+  ],
+  RRHH: [
+    "/solicitudes",
+    "/retorno-anticipado",
+    "/empleados",
+    "/panel/aprobaciones",
+    "/panel/saldos",
+    "/panel/reportes",
+  ],
+  GERENTE_PAIS: [
+    "/solicitudes",
+    "/retorno-anticipado",
+    "/empleados",
+    "/panel/aprobaciones",
+    "/panel/saldos",
+    "/panel/reportes",
+    "/configuracion",
+  ],
+  ADMINISTRADOR: [
+    "/solicitudes",
+    "/retorno-anticipado",
+    "/empleados",
+    "/panel/aprobaciones",
+    "/panel/saldos",
+    "/panel/reportes",
+    "/configuracion",
+  ],
+};
