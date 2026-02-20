@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/types";
 
@@ -46,6 +47,31 @@ export async function resolveUserRole(email: string): Promise<UserRole> {
 
 export function createSessionCookie(user: SessionUser): string {
   return Buffer.from(JSON.stringify(user)).toString("base64");
+}
+
+export function hashPassword(password: string): string {
+  return createHash("sha256").update(password).digest("hex");
+}
+
+export async function validatePassword(
+  email: string,
+  password: string
+): Promise<boolean> {
+  const config = await prisma.systemConfiguration.findFirst({
+    where: { key: `USER_PASSWORD_${email}` },
+  });
+
+  // Users without a password entry can login with email only (legacy behavior)
+  if (!config) return true;
+
+  return config.value === hashPassword(password);
+}
+
+export async function userRequiresPassword(email: string): Promise<boolean> {
+  const config = await prisma.systemConfiguration.findFirst({
+    where: { key: `USER_PASSWORD_${email}` },
+  });
+  return !!config;
 }
 
 export function getRoleLabel(role: UserRole): string {

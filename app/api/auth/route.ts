@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveUserRole, createSessionCookie, getSession } from "@/lib/auth";
+import {
+  resolveUserRole,
+  createSessionCookie,
+  getSession,
+  validatePassword,
+  userRequiresPassword,
+} from "@/lib/auth";
 
 const SESSION_COOKIE = "vacaciones_session";
 
@@ -12,11 +18,11 @@ export async function GET() {
   return NextResponse.json({ authenticated: true, ...session });
 }
 
-// POST: login with email
+// POST: login with email and optional password
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email } = body;
+    const { email, password } = body;
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -26,6 +32,25 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user requires password
+    const needsPassword = await userRequiresPassword(normalizedEmail);
+    if (needsPassword) {
+      if (!password) {
+        return NextResponse.json(
+          { error: "Contraseña es obligatoria", requiresPassword: true },
+          { status: 401 }
+        );
+      }
+      const valid = await validatePassword(normalizedEmail, password);
+      if (!valid) {
+        return NextResponse.json(
+          { error: "Contraseña incorrecta" },
+          { status: 401 }
+        );
+      }
+    }
+
     const role = await resolveUserRole(normalizedEmail);
     const sessionValue = createSessionCookie({ email: normalizedEmail, role });
 

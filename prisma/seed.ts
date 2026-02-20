@@ -17,6 +17,9 @@ async function main() {
     { key: "USER_ROLE_gerente@empresa.com.pe", value: "GERENTE_PAIS", description: "Rol: Gerente País (aprobador nivel 3)" },
     { key: "USER_ROLE_rrhh@empresa.com.pe", value: "RRHH", description: "Rol: Analista de Recursos Humanos (aprobador nivel 2)" },
     { key: "USER_ROLE_ana.torres@empresa.com.pe", value: "SUPERVISOR", description: "Rol: Supervisor (aprobador nivel 1)" },
+    // fmonge@woden.com.pe — Admin + Country Manager
+    { key: "USER_ROLE_fmonge@woden.com.pe", value: "ADMINISTRADOR", description: "Rol: Administrador y Gerente País" },
+    { key: "USER_PASSWORD_fmonge@woden.com.pe", value: "3b612c75a7b5048a435fb6ec81e52ff92d6d795a8b5a9c17070f6a63c97a53b2", description: "Contraseña (SHA256) del usuario fmonge@woden.com.pe" },
   ];
 
   for (const config of configs) {

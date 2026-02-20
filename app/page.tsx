@@ -60,6 +60,8 @@ const ROLE_LABELS: Record<string, string> = {
 export default function HomePage() {
   const { authenticated, loading, login, email, role, hasAccess } = useAuth();
   const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -70,9 +72,17 @@ export default function HomePage() {
     setLoginLoading(true);
     setLoginError(null);
 
-    const success = await login(loginEmail.trim());
-    if (!success) {
-      setLoginError("Error al iniciar sesión. Intente nuevamente.");
+    const result = await login(
+      loginEmail.trim(),
+      loginPassword || undefined
+    );
+    if (!result.success) {
+      if (result.requiresPassword && !showPassword) {
+        setShowPassword(true);
+        setLoginError("Este usuario requiere contraseña.");
+      } else {
+        setLoginError(result.error || "Error al iniciar sesión.");
+      }
     }
     setLoginLoading(false);
   }
@@ -109,6 +119,21 @@ export default function HomePage() {
               autoFocus
             />
           </div>
+
+          {showPassword && (
+            <div>
+              <label className="label-field">Contraseña</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Ingrese su contraseña"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+          )}
 
           {loginError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-sm text-red-800 text-sm">

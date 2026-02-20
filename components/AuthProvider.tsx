@@ -11,8 +11,14 @@ interface AuthState {
   loading: boolean;
 }
 
+interface LoginResult {
+  success: boolean;
+  error?: string;
+  requiresPassword?: boolean;
+}
+
 interface AuthContextType extends AuthState {
-  login: (email: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   hasAccess: (path: string) => boolean;
 }
@@ -22,7 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   email: "",
   role: "USUARIO",
   loading: true,
-  login: async () => false,
+  login: async () => ({ success: false }),
   logout: async () => {},
   hasAccess: () => false,
 });
@@ -63,28 +69,35 @@ export default function AuthProvider({
       });
   }, []);
 
-  const login = useCallback(async (email: string): Promise<boolean> => {
-    try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (data.authenticated) {
-        setState({
-          authenticated: true,
-          email: data.email,
-          role: data.role,
-          loading: false,
+  const login = useCallback(
+    async (email: string, password?: string): Promise<LoginResult> => {
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
         });
-        return true;
+        const data = await res.json();
+        if (data.authenticated) {
+          setState({
+            authenticated: true,
+            email: data.email,
+            role: data.role,
+            loading: false,
+          });
+          return { success: true };
+        }
+        return {
+          success: false,
+          error: data.error,
+          requiresPassword: data.requiresPassword,
+        };
+      } catch {
+        return { success: false, error: "Error de conexión" };
       }
-      return false;
-    } catch {
-      return false;
-    }
-  }, []);
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     await fetch("/api/auth", { method: "DELETE" });
