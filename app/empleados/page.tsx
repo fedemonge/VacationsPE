@@ -30,6 +30,7 @@ export default function EmpleadosPage() {
     fullName: "",
     email: "",
     hireDate: "",
+    terminationDate: "",
     costCenter: "",
     supervisorName: "",
     supervisorEmail: "",
@@ -59,10 +60,14 @@ export default function EmpleadosPage() {
     setSuccess(null);
 
     try {
+      const payload = {
+        ...form,
+        terminationDate: form.terminationDate || null,
+      };
       const res = await fetch("/api/empleados", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -75,6 +80,7 @@ export default function EmpleadosPage() {
           fullName: "",
           email: "",
           hireDate: "",
+          terminationDate: "",
           costCenter: "",
           supervisorName: "",
           supervisorEmail: "",
@@ -216,6 +222,20 @@ export default function EmpleadosPage() {
               />
             </div>
             <div>
+              <label className="label-field">Fecha de Cese</label>
+              <input
+                type="date"
+                className="input-field"
+                value={form.terminationDate}
+                onChange={(e) =>
+                  setForm({ ...form, terminationDate: e.target.value })
+                }
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Dejar vacío si el empleado está activo.
+              </p>
+            </div>
+            <div>
               <label className="label-field">Centro de Costos</label>
               <input
                 type="text"
@@ -281,19 +301,20 @@ export default function EmpleadosPage() {
               <th className="table-header">Email</th>
               <th className="table-header">Centro de Costos</th>
               <th className="table-header">Fecha Ingreso</th>
+              <th className="table-header">Fecha Cese</th>
               <th className="table-header">Estado</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="table-cell text-center text-gray-400">
+                <td colSpan={7} className="table-cell text-center text-gray-400">
                   Cargando...
                 </td>
               </tr>
             ) : employees.length === 0 ? (
               <tr>
-                <td colSpan={6} className="table-cell text-center text-gray-400">
+                <td colSpan={7} className="table-cell text-center text-gray-400">
                   No hay empleados registrados
                 </td>
               </tr>
@@ -308,6 +329,11 @@ export default function EmpleadosPage() {
                   <td className="table-cell">{emp.costCenter}</td>
                   <td className="table-cell">
                     {new Date(emp.hireDate).toLocaleDateString("es-PE")}
+                  </td>
+                  <td className="table-cell text-gray-500">
+                    {emp.terminationDate
+                      ? new Date(emp.terminationDate).toLocaleDateString("es-PE")
+                      : "—"}
                   </td>
                   <td className="table-cell">
                     {emp.terminationDate ? (
@@ -329,7 +355,7 @@ export default function EmpleadosPage() {
           Formato CSV para importación
         </h3>
         <p className="text-xs text-gray-500 font-mono">
-          employeeCode,fullName,email,hireDate,costCenter,supervisorName,supervisorEmail,position
+          employeeCode,fullName,email,hireDate,terminationDate,costCenter,supervisorName,supervisorEmail,position
         </p>
         <p className="text-xs text-gray-400 mt-1">
           Las fechas deben estar en formato YYYY-MM-DD. La primera fila se toma

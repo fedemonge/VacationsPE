@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const [employeeCode, fullName, email, hireDate, costCenter, supervisorName, supervisorEmail, position] = fields;
+      const [employeeCode, fullName, email, hireDate, terminationDate, costCenter, supervisorName, supervisorEmail, position] = fields;
 
       if (!employeeCode || !fullName || !email || !hireDate) {
         errors++;
@@ -47,12 +47,14 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        const termDate = terminationDate && terminationDate.trim() ? new Date(terminationDate) : null;
         await prisma.employee.upsert({
           where: { employeeCode },
           update: {
             fullName,
             email,
             hireDate: new Date(hireDate),
+            terminationDate: termDate,
             costCenter: costCenter || "",
             supervisorName: supervisorName || "",
             supervisorEmail: supervisorEmail || "",
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
             fullName,
             email,
             hireDate: new Date(hireDate),
+            terminationDate: termDate,
             costCenter: costCenter || "",
             supervisorName: supervisorName || "",
             supervisorEmail: supervisorEmail || "",
