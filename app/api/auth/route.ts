@@ -5,6 +5,7 @@ import {
   getSession,
   validatePassword,
   userRequiresPassword,
+  userMustChangePassword,
 } from "@/lib/auth";
 
 const SESSION_COOKIE = "vacaciones_session";
@@ -15,7 +16,12 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
-  return NextResponse.json({ authenticated: true, ...session });
+  const mustChange = await userMustChangePassword(session.email);
+  return NextResponse.json({
+    authenticated: true,
+    ...session,
+    mustChangePassword: mustChange,
+  });
 }
 
 // POST: login with email and optional password
@@ -52,14 +58,16 @@ export async function POST(request: NextRequest) {
     }
 
     const role = await resolveUserRole(normalizedEmail);
-    const sessionValue = createSessionCookie({ email: normalizedEmail, role });
+    const mustChange = await userMustChangePassword(normalizedEmail);
+    const sessionValue = createSessionCookie({ email: normalizedEmail, role, mustChangePassword: mustChange });
 
-    console.log(`[AUTH] LOGIN: ${normalizedEmail} - rol: ${role}`);
+    console.log(`[AUTH] LOGIN: ${normalizedEmail} - rol: ${role}${mustChange ? " (debe cambiar contraseña)" : ""}`);
 
     const response = NextResponse.json({
       authenticated: true,
       email: normalizedEmail,
       role,
+      mustChangePassword: mustChange,
     });
 
     response.cookies.set(SESSION_COOKIE, sessionValue, {

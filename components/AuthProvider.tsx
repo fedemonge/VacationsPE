@@ -9,6 +9,7 @@ interface AuthState {
   email: string;
   role: UserRole;
   loading: boolean;
+  mustChangePassword: boolean;
 }
 
 interface LoginResult {
@@ -21,6 +22,7 @@ interface AuthContextType extends AuthState {
   login: (email: string, password?: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   hasAccess: (path: string) => boolean;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,9 +30,11 @@ const AuthContext = createContext<AuthContextType>({
   email: "",
   role: "USUARIO",
   loading: true,
+  mustChangePassword: false,
   login: async () => ({ success: false }),
   logout: async () => {},
   hasAccess: () => false,
+  clearMustChangePassword: () => {},
 });
 
 export function useAuth(): AuthContextType {
@@ -47,6 +51,7 @@ export default function AuthProvider({
     email: "",
     role: "USUARIO",
     loading: true,
+    mustChangePassword: false,
   });
 
   useEffect(() => {
@@ -59,6 +64,7 @@ export default function AuthProvider({
             email: data.email,
             role: data.role,
             loading: false,
+            mustChangePassword: data.mustChangePassword || false,
           });
         } else {
           setState((prev) => ({ ...prev, loading: false }));
@@ -84,6 +90,7 @@ export default function AuthProvider({
             email: data.email,
             role: data.role,
             loading: false,
+            mustChangePassword: data.mustChangePassword || false,
           });
           return { success: true };
         }
@@ -106,7 +113,12 @@ export default function AuthProvider({
       email: "",
       role: "USUARIO",
       loading: false,
+      mustChangePassword: false,
     });
+  }, []);
+
+  const clearMustChangePassword = useCallback(() => {
+    setState((prev) => ({ ...prev, mustChangePassword: false }));
   }, []);
 
   const hasAccess = useCallback(
@@ -119,7 +131,7 @@ export default function AuthProvider({
   );
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, hasAccess }}>
+    <AuthContext.Provider value={{ ...state, login, logout, hasAccess, clearMustChangePassword }}>
       {children}
     </AuthContext.Provider>
   );

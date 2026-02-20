@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
 const features = [
@@ -58,7 +59,8 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const { authenticated, loading, login, email, role, hasAccess } = useAuth();
+  const { authenticated, loading, login, email, role, hasAccess, mustChangePassword } = useAuth();
+  const router = useRouter();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -149,11 +151,30 @@ export default function HomePage() {
             {loginLoading ? "Ingresando..." : "Ingresar"}
           </button>
 
+          <div className="text-center">
+            <Link
+              href="/restablecer-password"
+              className="text-xs text-woden-primary hover:underline"
+            >
+              ¿Olvidó su contraseña?
+            </Link>
+          </div>
+
           <p className="text-xs text-gray-400 text-center">
             El nivel de acceso se determina según la configuración del sistema.
             Si su correo no está registrado, tendrá acceso de usuario básico.
           </p>
         </form>
+      </div>
+    );
+  }
+
+  // Force password change if needed
+  if (mustChangePassword) {
+    router.push("/cambiar-password");
+    return (
+      <div className="text-center py-20 text-gray-400">
+        Redirigiendo a cambio de contraseña...
       </div>
     );
   }

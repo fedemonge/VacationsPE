@@ -84,11 +84,11 @@ export default function SaldosPage() {
       .then((r) => r.json())
       .then((data) => {
         setBalances(data.balances || []);
-        const ccs = [
-          ...new Set(
+        const ccs = Array.from(
+          new Set<string>(
             (data.balances || []).map((b: EmployeeBalance) => b.costCenter)
-          ),
-        ] as string[];
+          )
+        );
         setCostCenters(ccs.sort());
       })
       .catch(() => {})

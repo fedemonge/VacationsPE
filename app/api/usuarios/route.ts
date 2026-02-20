@@ -94,11 +94,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!existingPassword) {
+      const mustChangePwdKey = `USER_MUST_CHANGE_PWD_${normalizedEmail}`;
       await prisma.systemConfiguration.create({
         data: {
           key: passwordKey,
           value: hashPassword(DEFAULT_PASSWORD),
           description: `Contraseña del usuario ${normalizedEmail}`,
+          updatedBy: session.email,
+        },
+      });
+      // Flag the user to change password on first login
+      await prisma.systemConfiguration.upsert({
+        where: { key: mustChangePwdKey },
+        update: { value: "true", updatedBy: session.email },
+        create: {
+          key: mustChangePwdKey,
+          value: "true",
+          description: `Usuario ${normalizedEmail} debe cambiar contraseña`,
           updatedBy: session.email,
         },
       });
@@ -155,10 +167,12 @@ export async function DELETE(request: NextRequest) {
 
     const roleKey = `USER_ROLE_${normalizedEmail}`;
     const passwordKey = `USER_PASSWORD_${normalizedEmail}`;
+    const mustChangePwdKey = `USER_MUST_CHANGE_PWD_${normalizedEmail}`;
+    const resetTokenKey = `USER_RESET_TOKEN_${normalizedEmail}`;
 
-    // Delete role and password entries
+    // Delete role, password, and related entries
     await prisma.systemConfiguration.deleteMany({
-      where: { key: { in: [roleKey, passwordKey] } },
+      where: { key: { in: [roleKey, passwordKey, mustChangePwdKey, resetTokenKey] } },
     });
 
     console.log(

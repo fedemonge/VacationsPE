@@ -8,6 +8,7 @@ const SESSION_COOKIE = "vacaciones_session";
 export interface SessionUser {
   email: string;
   role: UserRole;
+  mustChangePassword?: boolean;
 }
 
 export async function getSession(): Promise<SessionUser | null> {
@@ -72,6 +73,25 @@ export async function userRequiresPassword(email: string): Promise<boolean> {
     where: { key: `USER_PASSWORD_${email}` },
   });
   return !!config;
+}
+
+export async function userMustChangePassword(email: string): Promise<boolean> {
+  const config = await prisma.systemConfiguration.findFirst({
+    where: { key: `USER_MUST_CHANGE_PWD_${email}` },
+  });
+  return config?.value === "true";
+}
+
+export async function clearMustChangePassword(email: string): Promise<void> {
+  await prisma.systemConfiguration.deleteMany({
+    where: { key: `USER_MUST_CHANGE_PWD_${email}` },
+  });
+}
+
+export function generateResetToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function getRoleLabel(role: UserRole): string {

@@ -99,5 +99,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/panel/saldos",
     "/panel/reportes",
     "/configuracion",
+    "/backups",
   ],
 };

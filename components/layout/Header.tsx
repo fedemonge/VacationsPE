@@ -13,6 +13,7 @@ const allNavItems = [
   { href: "/panel/saldos", label: "Saldos" },
   { href: "/panel/reportes", label: "Reportes" },
   { href: "/configuracion", label: "Configuración" },
+  { href: "/backups", label: "Respaldos" },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -74,6 +75,13 @@ export default function Header() {
                   {ROLE_LABELS[role] || role}
                 </p>
               </div>
+              <Link
+                href="/cambiar-password"
+                className="text-xs text-gray-400 hover:text-woden-primary px-2 py-1 border border-gray-200 rounded-sm hover:border-woden-primary transition-colors"
+                title="Cambiar contraseña"
+              >
+                Contraseña
+              </Link>
               <button
                 onClick={logout}
                 className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 border border-gray-200 rounded-sm hover:border-red-300 transition-colors"
@@ -135,12 +143,21 @@ export default function Header() {
             <p className="text-xs font-medium text-woden-primary">
               {ROLE_LABELS[role] || role}
             </p>
-            <button
-              onClick={logout}
-              className="mt-2 text-xs text-red-500 hover:underline"
-            >
-              Cerrar sesión
-            </button>
+            <div className="mt-2 flex gap-3">
+              <Link
+                href="/cambiar-password"
+                className="text-xs text-woden-primary hover:underline"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Cambiar contraseña
+              </Link>
+              <button
+                onClick={logout}
+                className="text-xs text-red-500 hover:underline"
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         </nav>
       )}

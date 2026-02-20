@@ -55,11 +55,13 @@ export default function ConfiguracionPage() {
     try {
       const res = await fetch("/api/configuracion");
       const data = await res.json();
-      // Filter out USER_ROLE_ and USER_PASSWORD_ entries from config table
+      // Filter out user-specific entries from config table
       const filtered = (data.configs || []).filter(
         (c: Config) =>
           !c.key.startsWith("USER_ROLE_") &&
-          !c.key.startsWith("USER_PASSWORD_")
+          !c.key.startsWith("USER_PASSWORD_") &&
+          !c.key.startsWith("USER_MUST_CHANGE_PWD_") &&
+          !c.key.startsWith("USER_RESET_TOKEN_")
       );
       setConfigs(filtered);
     } catch {
