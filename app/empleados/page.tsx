@@ -10,6 +10,7 @@ interface Employee {
   hireDate: string;
   terminationDate: string | null;
   costCenter: string;
+  costCenterDesc: string;
   supervisorName: string;
   supervisorEmail: string;
   position: string;
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
   hireDate: "",
   terminationDate: "",
   costCenter: "",
+  costCenterDesc: "",
   supervisorName: "",
   supervisorEmail: "",
   position: "",
@@ -73,6 +75,7 @@ export default function EmpleadosPage() {
       hireDate: emp.hireDate.split("T")[0],
       terminationDate: emp.terminationDate ? emp.terminationDate.split("T")[0] : "",
       costCenter: emp.costCenter,
+      costCenterDesc: emp.costCenterDesc || "",
       supervisorName: emp.supervisorName,
       supervisorEmail: emp.supervisorEmail,
       position: emp.position,
@@ -316,6 +319,18 @@ export default function EmpleadosPage() {
               />
             </div>
             <div>
+              <label className="label-field">Descripción de Centro de Costos</label>
+              <input
+                type="text"
+                className="input-field"
+                value={form.costCenterDesc}
+                onChange={(e) =>
+                  setForm({ ...form, costCenterDesc: e.target.value })
+                }
+                placeholder="Ej: Tecnología, Finanzas, Operaciones"
+              />
+            </div>
+            <div>
               <label className="label-field">Cargo</label>
               <input
                 type="text"
@@ -367,6 +382,7 @@ export default function EmpleadosPage() {
               <th className="table-header">Nombre</th>
               <th className="table-header">Email</th>
               <th className="table-header">Centro de Costos</th>
+              <th className="table-header">Desc. Centro de Costos</th>
               <th className="table-header">Fecha Ingreso</th>
               <th className="table-header">Fecha Cese</th>
               <th className="table-header">Estado</th>
@@ -376,13 +392,13 @@ export default function EmpleadosPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="table-cell text-center text-gray-400">
+                <td colSpan={9} className="table-cell text-center text-gray-400">
                   Cargando...
                 </td>
               </tr>
             ) : employees.length === 0 ? (
               <tr>
-                <td colSpan={8} className="table-cell text-center text-gray-400">
+                <td colSpan={9} className="table-cell text-center text-gray-400">
                   No hay empleados registrados
                 </td>
               </tr>
@@ -400,6 +416,7 @@ export default function EmpleadosPage() {
                   <td className="table-cell font-medium">{emp.fullName}</td>
                   <td className="table-cell text-gray-500">{emp.email}</td>
                   <td className="table-cell">{emp.costCenter}</td>
+                  <td className="table-cell text-gray-500">{emp.costCenterDesc || "—"}</td>
                   <td className="table-cell">
                     {new Date(emp.hireDate).toLocaleDateString("es-PE")}
                   </td>
@@ -436,7 +453,7 @@ export default function EmpleadosPage() {
           Formato CSV para importación
         </h3>
         <p className="text-xs text-gray-500 font-mono">
-          employeeCode,fullName,email,hireDate,terminationDate,costCenter,supervisorName,supervisorEmail,position
+          employeeCode,fullName,email,hireDate,terminationDate,costCenter,costCenterDesc,supervisorName,supervisorEmail,position
         </p>
         <p className="text-xs text-gray-400 mt-1">
           Las fechas deben estar en formato YYYY-MM-DD. La primera fila se toma

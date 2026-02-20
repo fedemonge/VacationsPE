@@ -15,6 +15,7 @@ model Employee {
   hireDate        DateTime
   terminationDate DateTime?
   costCenter      String
+  costCenterDesc  String    @default("")
   supervisorName  String
   supervisorEmail String
   position        String

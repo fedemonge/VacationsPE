@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const [employeeCode, fullName, email, hireDate, terminationDate, costCenter, supervisorName, supervisorEmail, position] = fields;
+      const [employeeCode, fullName, email, hireDate, terminationDate, costCenter, costCenterDesc, supervisorName, supervisorEmail, position] = fields;
 
       if (!employeeCode || !fullName || !email || !hireDate) {
         errors++;
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
             hireDate: new Date(hireDate),
             terminationDate: termDate,
             costCenter: costCenter || "",
+            costCenterDesc: costCenterDesc || "",
             supervisorName: supervisorName || "",
             supervisorEmail: supervisorEmail || "",
             position: position || "",
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
             hireDate: new Date(hireDate),
             terminationDate: termDate,
             costCenter: costCenter || "",
+            costCenterDesc: costCenterDesc || "",
             supervisorName: supervisorName || "",
             supervisorEmail: supervisorEmail || "",
             position: position || "",

@@ -36,6 +36,7 @@ export async function PATCH(
       hireDate,
       terminationDate,
       costCenter,
+      costCenterDesc,
       supervisorName,
       supervisorEmail,
       position,
@@ -49,6 +50,7 @@ export async function PATCH(
     if (terminationDate !== undefined)
       data.terminationDate = terminationDate ? new Date(terminationDate) : null;
     if (costCenter !== undefined) data.costCenter = costCenter;
+    if (costCenterDesc !== undefined) data.costCenterDesc = costCenterDesc;
     if (supervisorName !== undefined) data.supervisorName = supervisorName;
     if (supervisorEmail !== undefined) data.supervisorEmail = supervisorEmail;
     if (position !== undefined) data.position = position;
