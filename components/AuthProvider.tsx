@@ -115,6 +115,7 @@ export default function AuthProvider({
       loading: false,
       mustChangePassword: false,
     });
+    window.location.href = "/sesion-cerrada";
   }, []);
 
   const clearMustChangePassword = useCallback(() => {

@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
       session.email,
       session.role,
       currentLevel,
-      solicitud.supervisorEmail
+      solicitud.supervisorEmail,
+      solicitud.supervisorName
     );
 
     if (!canApprove) {
@@ -164,14 +165,21 @@ async function validateApprover(
   email: string,
   role: string,
   level: number,
-  supervisorEmail: string
+  supervisorEmail: string,
+  supervisorName: string
 ): Promise<boolean> {
-  // Level 1: Supervisor (must match the employee's supervisor email) OR ADMINISTRADOR
+  // Check if email matches either supervisorEmail or supervisorName (which may contain an email)
+  function isSupervisorMatch(): boolean {
+    const e = email.toLowerCase();
+    if (supervisorEmail && supervisorEmail.toLowerCase() === e) return true;
+    if (supervisorName && supervisorName.toLowerCase() === e) return true;
+    return false;
+  }
+
+  // Level 1: Supervisor (must match the employee's supervisor) OR ADMINISTRADOR
   if (level === 1) {
     if (role === "ADMINISTRADOR") return true;
-    if (role === "SUPERVISOR" && email === supervisorEmail) return true;
-    // Also allow if the user's email matches the supervisor email regardless of role
-    if (email === supervisorEmail) return true;
+    if (isSupervisorMatch()) return true;
     return false;
   }
 

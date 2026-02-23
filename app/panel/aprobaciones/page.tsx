@@ -75,7 +75,7 @@ export default function AprobacionesPage() {
 
   // Approval modal state
   const [modalSolicitud, setModalSolicitud] = useState<Solicitud | null>(null);
-  const [modalDecision, setModalDecision] = useState<"APROBADO" | "RECHAZADO">("APROBADO");
+  const [modalDecision, setModalDecision] = useState<"APROBADO" | "RECHAZADO" | "DEVUELTO">("APROBADO");
   const [modalComments, setModalComments] = useState("");
   const [modalSubmitting, setModalSubmitting] = useState(false);
 
@@ -92,6 +92,15 @@ export default function AprobacionesPage() {
       .finally(() => setLoading(false));
   }
 
+  function isSupervisorMatch(sol: Solicitud): boolean {
+    if (!email) return false;
+    const e = email.toLowerCase();
+    // Check both fields since supervisorName may contain an email
+    if (sol.supervisorEmail && sol.supervisorEmail.toLowerCase() === e) return true;
+    if (sol.supervisorName && sol.supervisorName.toLowerCase() === e) return true;
+    return false;
+  }
+
   function canApproveAtLevel(sol: Solicitud): boolean {
     const level = sol.currentApprovalLevel;
     if (!level || level < 1 || level > 3) return false;
@@ -101,7 +110,7 @@ export default function AprobacionesPage() {
 
     if (level === 1) {
       if (role === "ADMINISTRADOR") return true;
-      if (email === sol.supervisorEmail) return true;
+      if (isSupervisorMatch(sol)) return true;
       return false;
     }
     if (level === 2) {
@@ -113,7 +122,18 @@ export default function AprobacionesPage() {
     return false;
   }
 
-  function openModal(sol: Solicitud, decision: "APROBADO" | "RECHAZADO") {
+  function canReturnLevel(sol: Solicitud): boolean {
+    if (sol.currentApprovalLevel <= 1) return false;
+    const expectedStatus = `NIVEL_${sol.currentApprovalLevel}_PENDIENTE`;
+    if (sol.status !== expectedStatus) return false;
+    // Only the approver at the current level or admin can return
+    if (role === "ADMINISTRADOR") return true;
+    if (sol.currentApprovalLevel === 2 && role === "RRHH") return true;
+    if (sol.currentApprovalLevel === 3 && role === "GERENTE_PAIS") return true;
+    return false;
+  }
+
+  function openModal(sol: Solicitud, decision: "APROBADO" | "RECHAZADO" | "DEVUELTO") {
     setModalSolicitud(sol);
     setModalDecision(decision);
     setModalComments("");
@@ -131,7 +151,11 @@ export default function AprobacionesPage() {
     setActionMessage(null);
 
     try {
-      const res = await fetch("/api/aprobaciones/decidir", {
+      const url = modalDecision === "DEVUELTO"
+        ? "/api/aprobaciones/devolver"
+        : "/api/aprobaciones/decidir";
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,24 +304,35 @@ export default function AprobacionesPage() {
                     {new Date(sol.createdAt).toLocaleDateString("es-PE")}
                   </td>
                   <td className="table-cell">
-                    {canApproveAtLevel(sol) ? (
-                      <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
+                      {canApproveAtLevel(sol) && (
+                        <>
+                          <button
+                            className="text-xs bg-green-600 text-white px-2 py-1 rounded-sm hover:bg-green-700"
+                            onClick={() => openModal(sol, "APROBADO")}
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            className="text-xs bg-red-500 text-white px-2 py-1 rounded-sm hover:bg-red-600"
+                            onClick={() => openModal(sol, "RECHAZADO")}
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      )}
+                      {canReturnLevel(sol) && (
                         <button
-                          className="text-xs bg-green-600 text-white px-2 py-1 rounded-sm hover:bg-green-700"
-                          onClick={() => openModal(sol, "APROBADO")}
+                          className="text-xs bg-yellow-500 text-white px-2 py-1 rounded-sm hover:bg-yellow-600"
+                          onClick={() => openModal(sol, "DEVUELTO")}
                         >
-                          Aprobar
+                          Devolver
                         </button>
-                        <button
-                          className="text-xs bg-red-500 text-white px-2 py-1 rounded-sm hover:bg-red-600"
-                          onClick={() => openModal(sol, "RECHAZADO")}
-                        >
-                          Rechazar
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
+                      )}
+                      {!canApproveAtLevel(sol) && !canReturnLevel(sol) && (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -349,10 +384,12 @@ export default function AprobacionesPage() {
                           className={
                             r.status === "APROBADO"
                               ? "badge-aprobada"
-                              : "badge-rechazada"
+                              : r.status === "DEVUELTO"
+                                ? "badge-pendiente"
+                                : "badge-rechazada"
                           }
                         >
-                          {r.status === "APROBADO" ? "Aprobado" : "Rechazado"}
+                          {r.status === "APROBADO" ? "Aprobado" : r.status === "DEVUELTO" ? "Devuelto" : "Rechazado"}
                         </span>
                       </td>
                       <td className="table-cell text-xs text-gray-500 max-w-[200px] truncate">
@@ -376,7 +413,9 @@ export default function AprobacionesPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {modalDecision === "APROBADO"
                 ? "Aprobar Solicitud"
-                : "Rechazar Solicitud"}
+                : modalDecision === "DEVUELTO"
+                  ? "Devolver al Nivel Anterior"
+                  : "Rechazar Solicitud"}
             </h3>
 
             <div className="mb-4 p-3 bg-gray-50 rounded-sm text-sm space-y-1">
@@ -402,7 +441,7 @@ export default function AprobacionesPage() {
 
             <div className="mb-4">
               <label className="label-field">
-                Comentarios {modalDecision === "RECHAZADO" && "(recomendado)"}
+                Comentarios {modalDecision !== "APROBADO" && "(recomendado)"}
               </label>
               <textarea
                 className="input-field"
@@ -412,7 +451,9 @@ export default function AprobacionesPage() {
                 placeholder={
                   modalDecision === "APROBADO"
                     ? "Comentarios opcionales..."
-                    : "Motivo del rechazo..."
+                    : modalDecision === "DEVUELTO"
+                      ? "Motivo de la devolución..."
+                      : "Motivo del rechazo..."
                 }
               />
             </div>
@@ -429,7 +470,9 @@ export default function AprobacionesPage() {
                 className={`px-4 py-2 text-sm text-white rounded-sm ${
                   modalDecision === "APROBADO"
                     ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-500 hover:bg-red-600"
+                    : modalDecision === "DEVUELTO"
+                      ? "bg-yellow-500 hover:bg-yellow-600"
+                      : "bg-red-500 hover:bg-red-600"
                 }`}
                 onClick={handleDecision}
                 disabled={modalSubmitting}
@@ -438,7 +481,9 @@ export default function AprobacionesPage() {
                   ? "Procesando..."
                   : modalDecision === "APROBADO"
                     ? "Confirmar Aprobación"
-                    : "Confirmar Rechazo"}
+                    : modalDecision === "DEVUELTO"
+                      ? "Confirmar Devolución"
+                      : "Confirmar Rechazo"}
               </button>
             </div>
           </div>

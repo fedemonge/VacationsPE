@@ -50,9 +50,7 @@ export default function CambiarPasswordPage() {
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        if (!mustChangePassword) {
-          setTimeout(() => router.push("/"), 2000);
-        }
+        setTimeout(() => router.push("/"), 2000);
       }
     } catch {
       setError("Error de conexión");
@@ -89,11 +87,9 @@ export default function CambiarPasswordPage() {
       {success && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-sm text-green-800 text-sm">
           {success}
-          {!mustChangePassword && (
-            <span className="block mt-1 text-xs">
-              Redirigiendo al inicio...
-            </span>
-          )}
+          <span className="block mt-1 text-xs">
+            Redirigiendo al inicio...
+          </span>
         </div>
       )}
 
