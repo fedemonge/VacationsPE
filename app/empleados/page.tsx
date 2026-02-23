@@ -447,6 +447,9 @@ export default function EmpleadosPage() {
         </table>
       </div>
 
+      {/* Supervisor Assignment Section */}
+      <SupervisorSection employees={employees} onUpdate={loadEmployees} />
+
       {/* CSV Format Info */}
       <div className="mt-6 p-4 bg-woden-primary-lighter rounded-sm">
         <h3 className="text-sm font-semibold text-gray-700 mb-2">
@@ -460,6 +463,222 @@ export default function EmpleadosPage() {
           como encabezado. Dejar terminationDate vacío para empleados activos.
         </p>
       </div>
+
+      {/* Power Automate Info */}
+      <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-sm">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">
+          Sincronización de Supervisores vía Power Automate (Office 365)
+        </h3>
+        <p className="text-xs text-gray-500 mb-2">
+          Configure un flujo de Power Automate que envíe un POST a{" "}
+          <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">
+            {typeof window !== "undefined" ? window.location.origin : ""}/api/empleados/supervisores
+          </code>{" "}
+          con el header <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">x-webhook-secret</code> y el siguiente body:
+        </p>
+        <pre className="text-xs bg-gray-100 p-3 rounded overflow-x-auto">
+{`{
+  "employees": [
+    {
+      "email": "empleado@empresa.com",
+      "supervisorName": "Nombre del Supervisor",
+      "supervisorEmail": "supervisor@empresa.com"
+    }
+  ]
+}`}
+        </pre>
+        <p className="text-xs text-gray-400 mt-2">
+          El flujo de Power Automate puede usar el conector de Office 365 Users
+          para obtener el campo &quot;manager&quot; de cada usuario y enviarlo periódicamente.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SupervisorSection({
+  employees,
+  onUpdate,
+}: {
+  employees: Employee[];
+  onUpdate: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [supervisorName, setSupervisorName] = useState("");
+  const [supervisorEmail, setSupervisorEmail] = useState("");
+  const [supMessage, setSupMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function handleSelectEmployee(empId: string) {
+    setSelectedEmployeeId(empId);
+    const emp = employees.find((e) => e.id === empId);
+    if (emp) {
+      setSupervisorName(emp.supervisorName);
+      setSupervisorEmail(emp.supervisorEmail);
+    } else {
+      setSupervisorName("");
+      setSupervisorEmail("");
+    }
+    setSupMessage(null);
+  }
+
+  async function handleSaveSupervisor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedEmployeeId) return;
+    setSaving(true);
+    setSupMessage(null);
+
+    try {
+      const res = await fetch("/api/empleados/supervisores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: selectedEmployeeId,
+          supervisorName,
+          supervisorEmail,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSupMessage({ type: "error", text: data.error });
+      } else {
+        setSupMessage({ type: "success", text: data.message });
+        onUpdate();
+      }
+    } catch {
+      setSupMessage({ type: "error", text: "Error de conexión" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-6">
+      <button
+        className="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-woden-primary mb-3"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <svg
+          className={`w-4 h-4 transition-transform ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        Asignación de Supervisores
+      </button>
+
+      {expanded && (
+        <div className="card space-y-4">
+          <p className="text-sm text-gray-500">
+            Asigne o cambie el supervisor de un empleado. Esta información
+            determina quién aprueba las solicitudes de vacaciones en Nivel 1.
+          </p>
+
+          {supMessage && (
+            <div
+              className={`p-3 rounded-sm text-sm ${
+                supMessage.type === "success"
+                  ? "bg-green-50 border border-green-200 text-green-800"
+                  : "bg-red-50 border border-red-200 text-red-800"
+              }`}
+            >
+              {supMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleSaveSupervisor} className="space-y-4">
+            <div>
+              <label className="label-field">Empleado</label>
+              <select
+                className="input-field"
+                value={selectedEmployeeId}
+                onChange={(e) => handleSelectEmployee(e.target.value)}
+                required
+              >
+                <option value="">Seleccione un empleado...</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.fullName} ({emp.employeeCode}) — Supervisor actual:{" "}
+                    {emp.supervisorName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedEmployeeId && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label-field">Nombre del Supervisor</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={supervisorName}
+                      onChange={(e) => setSupervisorName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-field">Email del Supervisor</label>
+                    <input
+                      type="email"
+                      className="input-field"
+                      value={supervisorEmail}
+                      onChange={(e) => setSupervisorEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={saving || !supervisorName || !supervisorEmail}
+                >
+                  {saving ? "Guardando..." : "Guardar Supervisor"}
+                </button>
+              </>
+            )}
+          </form>
+
+          {/* Current supervisor assignments table */}
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">
+              Asignaciones actuales
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-header">Empleado</th>
+                    <th className="table-header">Supervisor</th>
+                    <th className="table-header">Email Supervisor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((emp) => (
+                    <tr key={emp.id} className="hover:bg-woden-primary-lighter">
+                      <td className="table-cell text-sm">{emp.fullName}</td>
+                      <td className="table-cell text-sm">{emp.supervisorName}</td>
+                      <td className="table-cell text-sm text-gray-500">
+                        {emp.supervisorEmail}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
