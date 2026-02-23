@@ -43,6 +43,7 @@ export default function ConfiguracionPage() {
     text: string;
   } | null>(null);
   const [savingUser, setSavingUser] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
 
   useEffect(() => {
     loadConfigs();
@@ -161,6 +162,36 @@ export default function ConfiguracionPage() {
     }
   }
 
+  async function handleResetPassword(email: string) {
+    if (
+      !confirm(
+        `¿Está seguro de restablecer la contraseña de ${email}? La nueva contraseña será Woden123 y deberá cambiarla al iniciar sesión.`
+      )
+    )
+      return;
+
+    setResettingPassword(email);
+    try {
+      const res = await fetch("/api/usuarios", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setUserMessage({ type: "error", text: data.error });
+      } else {
+        setUserMessage({ type: "success", text: data.message });
+      }
+    } catch {
+      setUserMessage({ type: "error", text: "Error de conexión" });
+    } finally {
+      setResettingPassword(null);
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -241,7 +272,7 @@ export default function ConfiguracionPage() {
                 <tr>
                   <th className="table-header">Correo Electrónico</th>
                   <th className="table-header">Rol</th>
-                  <th className="table-header w-24">Acción</th>
+                  <th className="table-header w-48">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -276,12 +307,23 @@ export default function ConfiguracionPage() {
                         </span>
                       </td>
                       <td className="table-cell">
-                        <button
-                          className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                          onClick={() => handleRemoveRole(user.email)}
-                        >
-                          Eliminar
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            className="text-xs text-woden-primary hover:underline"
+                            onClick={() => handleResetPassword(user.email)}
+                            disabled={resettingPassword === user.email}
+                          >
+                            {resettingPassword === user.email
+                              ? "Restableciendo..."
+                              : "Restablecer Clave"}
+                          </button>
+                          <button
+                            className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                            onClick={() => handleRemoveRole(user.email)}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

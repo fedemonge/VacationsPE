@@ -472,7 +472,7 @@ export default function EmpleadosPage() {
         <p className="text-xs text-gray-500 mb-2">
           Configure un flujo de Power Automate que envíe un POST a{" "}
           <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">
-            {typeof window !== "undefined" ? window.location.origin : ""}/api/empleados/supervisores
+            /api/empleados/supervisores
           </code>{" "}
           con el header <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">x-webhook-secret</code> y el siguiente body:
         </p>

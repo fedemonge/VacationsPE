@@ -9,7 +9,9 @@ import {
 import { es } from "date-fns/locale";
 
 export function getMinVacationStartDate(): Date {
-  return addDays(new Date(), 30);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return addDays(today, 30);
 }
 
 export function calculateVacationDays(dateFrom: Date, dateTo: Date): number {

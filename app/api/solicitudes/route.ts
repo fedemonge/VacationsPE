@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const from = new Date(dateFrom);
-    const to = new Date(dateTo);
+    const from = new Date(dateFrom + "T00:00:00");
+    const to = new Date(dateTo + "T00:00:00");
 
     // Validate 30-day advance
     const minDate = getMinVacationStartDate();

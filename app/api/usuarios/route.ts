@@ -134,6 +134,88 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH: admin resets a user's password back to default (Woden123)
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "ADMINISTRADOR") {
+      return NextResponse.json(
+        { error: "Solo los administradores pueden restablecer contraseñas" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { email } = body;
+
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { error: "Email es obligatorio" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const passwordKey = `USER_PASSWORD_${normalizedEmail}`;
+    const mustChangePwdKey = `USER_MUST_CHANGE_PWD_${normalizedEmail}`;
+
+    // Verify the user exists
+    const existingRole = await prisma.systemConfiguration.findUnique({
+      where: { key: `USER_ROLE_${normalizedEmail}` },
+    });
+
+    if (!existingRole) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Reset password to default
+    await prisma.systemConfiguration.upsert({
+      where: { key: passwordKey },
+      update: { value: hashPassword(DEFAULT_PASSWORD), updatedBy: session.email },
+      create: {
+        key: passwordKey,
+        value: hashPassword(DEFAULT_PASSWORD),
+        description: `Contraseña del usuario ${normalizedEmail}`,
+        updatedBy: session.email,
+      },
+    });
+
+    // Force password change on next login
+    await prisma.systemConfiguration.upsert({
+      where: { key: mustChangePwdKey },
+      update: { value: "true", updatedBy: session.email },
+      create: {
+        key: mustChangePwdKey,
+        value: "true",
+        description: `Usuario ${normalizedEmail} debe cambiar contraseña`,
+        updatedBy: session.email,
+      },
+    });
+
+    // Delete any existing reset token
+    await prisma.systemConfiguration.deleteMany({
+      where: { key: `USER_RESET_TOKEN_${normalizedEmail}` },
+    });
+
+    console.log(
+      `[USUARIOS] CONTRASEÑA_RESTABLECIDA: ${normalizedEmail} por ${session.email}`
+    );
+
+    return NextResponse.json({
+      message: `Contraseña de ${normalizedEmail} restablecida a ${DEFAULT_PASSWORD}. El usuario deberá cambiarla al iniciar sesión.`,
+    });
+  } catch (error) {
+    console.error("[USUARIOS] ERROR:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE: remove user role assignment
 export async function DELETE(request: NextRequest) {
   try {
