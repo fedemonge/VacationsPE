@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 async function main() {
   // System Configuration
   const configs = [
-    { key: "GERENTE_PAIS_EMAIL", value: "gerente@empresa.com.pe", description: "Email del Gerente País (aprobador nivel 3)" },
-    { key: "GERENTE_PAIS_NOMBRE", value: "Carlos Rodríguez", description: "Nombre del Gerente País" },
+    { key: "GERENTE_PAIS_EMAIL", value: "gerente@empresa.com.pe", description: "Email del Gerente General (aprobador nivel 3)" },
+    { key: "GERENTE_PAIS_NOMBRE", value: "Carlos Rodríguez", description: "Nombre del Gerente General" },
     { key: "ANALISTA_RRHH_EMAIL", value: "rrhh@empresa.com.pe", description: "Email del Analista RRHH (aprobador nivel 2)" },
     { key: "ANALISTA_RRHH_NOMBRE", value: "María López", description: "Nombre del Analista RRHH" },
     { key: "POWER_AUTOMATE_WEBHOOK", value: "https://prod-xx.westus.logic.azure.com/workflows/...", description: "URL del webhook de Power Automate" },
@@ -14,11 +14,11 @@ async function main() {
     { key: "DIAS_CANCELACION_AUTO", value: "7", description: "Días antes de inicio para cancelación automática" },
     // User Roles
     { key: "USER_ROLE_admin@empresa.com.pe", value: "ADMINISTRADOR", description: "Rol: Administrador del sistema" },
-    { key: "USER_ROLE_gerente@empresa.com.pe", value: "GERENTE_PAIS", description: "Rol: Gerente País (aprobador nivel 3)" },
+    { key: "USER_ROLE_gerente@empresa.com.pe", value: "GERENTE_PAIS", description: "Rol: Gerente General (aprobador nivel 3)" },
     { key: "USER_ROLE_rrhh@empresa.com.pe", value: "RRHH", description: "Rol: Analista de Recursos Humanos (aprobador nivel 2)" },
     { key: "USER_ROLE_ana.torres@empresa.com.pe", value: "SUPERVISOR", description: "Rol: Supervisor (aprobador nivel 1)" },
     // fmonge@woden.com.pe — Admin + Country Manager
-    { key: "USER_ROLE_fmonge@woden.com.pe", value: "ADMINISTRADOR", description: "Rol: Administrador y Gerente País" },
+    { key: "USER_ROLE_fmonge@woden.com.pe", value: "ADMINISTRADOR", description: "Rol: Administrador y Gerente General" },
     { key: "USER_PASSWORD_fmonge@woden.com.pe", value: "36a5fbcd1e11b0a94c5f1157860352fa3ce0e9f87700fa888df6d3b9533af333", description: "Contraseña (SHA256) del usuario fmonge@woden.com.pe" },
   ];
 
@@ -133,10 +133,74 @@ async function main() {
     }
   }
 
+  // Org Positions — create positions for existing employees + sample vacant/third-party
+  let posCount = 0;
+  for (const emp of createdEmployees) {
+    posCount++;
+    const positionCode = `POS-${String(posCount).padStart(4, "0")}`;
+    await prisma.orgPosition.upsert({
+      where: { positionCode },
+      update: {},
+      create: {
+        positionCode,
+        title: emp.position,
+        costCenter: emp.costCenter,
+        costCenterDesc: "",
+        reportsToEmail: emp.supervisorEmail,
+        employeeId: emp.id,
+        positionType: "REGULAR",
+        status: "OCUPADA",
+      },
+    });
+  }
+
+  // Vacant positions
+  const vacantPositions = [
+    { title: "Analista Junior", costCenter: "CC-100", reportsToEmail: "ana.torres@empresa.com.pe" },
+    { title: "Desarrollador Frontend", costCenter: "CC-200", reportsToEmail: "ana.torres@empresa.com.pe" },
+  ];
+  for (const vp of vacantPositions) {
+    posCount++;
+    const code = `POS-${String(posCount).padStart(4, "0")}`;
+    await prisma.orgPosition.upsert({
+      where: { positionCode: code },
+      update: {},
+      create: {
+        positionCode: code,
+        title: vp.title,
+        costCenter: vp.costCenter,
+        costCenterDesc: "",
+        reportsToEmail: vp.reportsToEmail,
+        positionType: "REGULAR",
+        status: "VACANTE",
+      },
+    });
+  }
+
+  // Third-party positions
+  posCount++;
+  const thirdPartyCode = `POS-${String(posCount).padStart(4, "0")}`;
+  await prisma.orgPosition.upsert({
+    where: { positionCode: thirdPartyCode },
+    update: {},
+    create: {
+      positionCode: thirdPartyCode,
+      title: "Soporte TI",
+      costCenter: "CC-100",
+      costCenterDesc: "",
+      reportsToEmail: "ana.torres@empresa.com.pe",
+      positionType: "TERCERO",
+      status: "OCUPADA",
+      thirdPartyName: "Carlos Externo",
+      thirdPartyCompany: "Servicios TI SAC",
+    },
+  });
+
   console.log("Seed completado exitosamente");
   console.log(`- ${configs.length} configuraciones del sistema`);
   console.log(`- ${createdEmployees.length} empleados`);
   console.log("- Devengamientos de vacaciones creados para todos los empleados");
+  console.log(`- ${posCount} posiciones organizacionales creadas`);
 }
 
 main()

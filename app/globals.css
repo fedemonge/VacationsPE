@@ -70,4 +70,116 @@
   .section-alt {
     @apply bg-woden-primary-light;
   }
+
+  /* Org chart badges */
+  .badge-vacante {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-dashed border-gray-400;
+  }
+
+  .badge-tercero {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700;
+  }
+
+  .badge-en-vacaciones {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700;
+  }
+
+  /* Org chart node cards */
+  .org-node-card {
+    @apply bg-white rounded-sm shadow-sm border border-gray-200 p-3 text-center min-w-[160px] max-w-[200px];
+  }
+
+  .org-node-vacant {
+    @apply bg-gray-50 rounded-sm shadow-sm border border-dashed border-gray-400 p-3 text-center min-w-[160px] max-w-[200px];
+  }
+
+  .org-node-third-party {
+    @apply bg-white rounded-sm shadow-sm border border-gray-200 border-l-4 border-l-purple-400 p-3 text-center min-w-[160px] max-w-[200px];
+  }
+
+  .org-node-on-vacation {
+    @apply border-l-4 border-l-amber-400 bg-amber-50;
+  }
+}
+
+/* Org chart tree layout — connector lines */
+.org-tree-wrapper {
+  overflow-x: auto;
+  padding: 20px 0;
+}
+
+.org-tree {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100%;
+}
+
+.org-node-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Vertical line from parent card down to children */
+.org-node-wrapper > .org-children::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 20px;
+  border-left: 2px solid #d1d5db;
+  margin: 0 auto;
+}
+
+/* Container for child nodes — horizontal row */
+.org-children {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.org-children-row {
+  display: flex;
+  position: relative;
+}
+
+/* Horizontal connector line is built by .org-branch::after on each child */
+
+/* Each branch: vertical line up from the horizontal connector to the child card */
+.org-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 10px;
+}
+
+.org-branch::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 20px;
+  border-left: 2px solid #d1d5db;
+}
+
+/* Horizontal line segments on branches */
+.org-branch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-top: 2px solid #d1d5db;
+}
+
+.org-branch:first-child::after {
+  left: 50%;
+}
+
+.org-branch:last-child::after {
+  right: 50%;
+}
+
+.org-branch:only-child::after {
+  display: none;
 }

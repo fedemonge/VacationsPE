@@ -24,9 +24,12 @@ model Employee {
 
   vacationRequests    VacationRequest[]
   earlyReturnRequests EarlyReturnRequest[]
+  cashOutRequests     VacationCashOutRequest[]
   vacationAccruals    VacationAccrual[]
   biometricRecords    BiometricRecord[]
   balanceAdjustments  BalanceAdjustment[]
+  orgPositions        OrgPosition[]
+  staffRequestHires   StaffRequest[] @relation("StaffRequestHire")
 }
 
 model VacationRequest {
@@ -49,7 +52,6 @@ model VacationRequest {
   updatedAt             DateTime  @updatedAt
 
   employee            Employee             @relation(fields: [employeeId], references: [id])
-  approvalRecords     ApprovalRecord[]
   vacationConsumptions VacationConsumption[]
   earlyReturnRequests EarlyReturnRequest[]
 }
@@ -61,13 +63,13 @@ model EarlyReturnRequest {
   returnDate              DateTime
   employeeJustification   String
   approverJustification   String   @default("")
-  status                  String   @default("PENDIENTE")
+  status                  String   @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel    Int      @default(1)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
   vacationRequest VacationRequest @relation(fields: [vacationRequestId], references: [id])
   employee        Employee        @relation(fields: [employeeId], references: [id])
-  approvalRecords ApprovalRecord[]
 }
 
 model VacationAccrual {
@@ -93,12 +95,32 @@ model VacationAccrual {
 model VacationConsumption {
   id                String   @id @default(uuid())
   accrualId         String
-  vacationRequestId String
+  vacationRequestId String?
+  cashOutRequestId  String?
   daysConsumed      Float
   consumedAt        DateTime @default(now())
 
-  accrual         VacationAccrual @relation(fields: [accrualId], references: [id])
-  vacationRequest VacationRequest @relation(fields: [vacationRequestId], references: [id])
+  accrual         VacationAccrual         @relation(fields: [accrualId], references: [id])
+  vacationRequest VacationRequest?        @relation(fields: [vacationRequestId], references: [id])
+  cashOutRequest  VacationCashOutRequest? @relation(fields: [cashOutRequestId], references: [id])
+}
+
+model VacationCashOutRequest {
+  id                    String   @id @default(uuid())
+  employeeId            String
+  employeeName          String
+  employeeCode          String
+  employeeEmail         String
+  supervisorName        String
+  supervisorEmail       String
+  daysRequested         Int
+  status                String   @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel  Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  employee     Employee              @relation(fields: [employeeId], references: [id])
+  consumptions VacationConsumption[]
 }
 
 model ApprovalRecord {
@@ -112,9 +134,6 @@ model ApprovalRecord {
   decidedAt             DateTime?
   comments              String?
   createdAt             DateTime  @default(now())
-
-  vacationRequest     VacationRequest?     @relation(fields: [requestId], references: [id])
-  earlyReturnRequest  EarlyReturnRequest?  @relation(fields: [requestId], references: [id])
 
   @@index([requestId])
 }
@@ -145,6 +164,14 @@ model BalanceAdjustment {
   @@index([employeeId])
 }
 
+model CostCenter {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model BiometricRecord {
   id           String    @id @default(uuid())
   employeeId   String
@@ -159,4 +186,59 @@ model BiometricRecord {
   employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId, date])
+}
+
+model OrgPosition {
+  id                String    @id @default(uuid())
+  positionCode      String    @unique
+  title             String
+  costCenter        String
+  costCenterDesc    String    @default("")
+  reportsToEmail    String
+  employeeId        String?
+  positionType      String    @default("REGULAR")
+  status            String    @default("VACANTE")
+  thirdPartyName    String?
+  thirdPartyCompany String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  employee       Employee?      @relation(fields: [employeeId], references: [id])
+  staffRequests  StaffRequest[]
+
+  @@index([reportsToEmail])
+  @@index([costCenter])
+  @@index([status])
+}
+
+model StaffRequest {
+  id                    String    @id @default(uuid())
+  requestType           String
+  positionId            String?
+  positionTitle         String
+  costCenter            String
+  costCenterDesc        String    @default("")
+  reportsToEmail        String
+  positionType          String    @default("REGULAR")
+  justification         String
+  requestedByEmail      String
+  requestedByName       String
+  supervisorName        String
+  supervisorEmail       String
+  status                String    @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel  Int       @default(1)
+  approvedAt            DateTime?
+  hiredEmployeeId       String?
+  hiredAt               DateTime?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  position      OrgPosition? @relation(fields: [positionId], references: [id])
+  hiredEmployee Employee?    @relation("StaffRequestHire", fields: [hiredEmployeeId], references: [id])
+
+  @@index([status])
+  @@index([requestedByEmail])
+  @@index([positionId])
 }

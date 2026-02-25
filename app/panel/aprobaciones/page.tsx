@@ -26,13 +26,18 @@ interface Solicitud {
   currentApprovalLevel: number;
   createdAt: string;
   approvalRecords: ApprovalRecord[];
+  requestType: "VACACIONES" | "RETORNO_ANTICIPADO" | "VACACIONES_DINERO" | "NUEVA_POSICION" | "CONTRATACION";
+  returnDate?: string;
+  daysRequested?: number;
+  positionTitle?: string;
+  justification?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
   PENDIENTE: "Pendiente",
   NIVEL_1_PENDIENTE: "Nivel 1 - Supervisor",
   NIVEL_2_PENDIENTE: "Nivel 2 - RRHH",
-  NIVEL_3_PENDIENTE: "Nivel 3 - Gerente País",
+  NIVEL_3_PENDIENTE: "Nivel 3 - Gerente General",
   APROBADA: "Aprobada",
   RECHAZADA: "Rechazada",
   CANCELADA: "Cancelada",
@@ -41,7 +46,7 @@ const STATUS_LABELS: Record<string, string> = {
 const LEVEL_LABELS: Record<number, string> = {
   1: "Supervisor",
   2: "RRHH",
-  3: "Gerente País",
+  3: "Gerente General",
 };
 
 function getStatusBadgeClass(status: string): string {
@@ -68,6 +73,7 @@ export default function AprobacionesPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterType, setFilterType] = useState<"" | "VACACIONES" | "RETORNO_ANTICIPADO" | "VACACIONES_DINERO" | "NUEVA_POSICION" | "CONTRATACION">("");
   const [actionMessage, setActionMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -83,13 +89,89 @@ export default function AprobacionesPage() {
     loadSolicitudes();
   }, []);
 
-  function loadSolicitudes() {
+  async function loadSolicitudes() {
     setLoading(true);
-    fetch("/api/solicitudes")
-      .then((r) => r.json())
-      .then((data) => setSolicitudes(data.solicitudes || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      // Fetch vacation requests, early returns, cash-out requests, and staff requests
+      const [vacRes, retRes, cashRes, staffRes] = await Promise.all([
+        fetch("/api/solicitudes").then((r) => r.json()),
+        fetch("/api/retorno-anticipado").then((r) => r.json()),
+        fetch("/api/vacaciones-dinero").then((r) => r.json()),
+        fetch("/api/solicitudes-personal").then((r) => r.json()),
+      ]);
+
+      const vacaciones: Solicitud[] = (vacRes.solicitudes || []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (s: any) => ({
+          ...s,
+          requestType: "VACACIONES" as const,
+        })
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const retornos: Solicitud[] = (retRes.retornos || []).map((r: any) => ({
+        id: r.id,
+        employeeName: r.employee?.fullName || "",
+        employeeCode: r.employee?.employeeCode || "",
+        employeeEmail: r.employee?.email || "",
+        supervisorName: r.employee?.supervisorName || "",
+        supervisorEmail: r.employee?.supervisorEmail || "",
+        dateFrom: r.vacationRequest?.dateFrom || "",
+        dateTo: r.vacationRequest?.dateTo || "",
+        totalDays: r.vacationRequest?.totalDays || 0,
+        status: r.status,
+        currentApprovalLevel: r.currentApprovalLevel,
+        createdAt: r.createdAt,
+        approvalRecords: r.approvalRecords || [],
+        requestType: "RETORNO_ANTICIPADO" as const,
+        returnDate: r.returnDate,
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cashOuts: Solicitud[] = (cashRes.cashOuts || []).map((c: any) => ({
+        id: c.id,
+        employeeName: c.employeeName,
+        employeeCode: c.employeeCode,
+        employeeEmail: c.employeeEmail,
+        supervisorName: c.supervisorName,
+        supervisorEmail: c.supervisorEmail,
+        dateFrom: c.createdAt,
+        dateTo: c.createdAt,
+        totalDays: c.daysRequested,
+        status: c.status,
+        currentApprovalLevel: c.currentApprovalLevel,
+        createdAt: c.createdAt,
+        approvalRecords: c.approvalRecords || [],
+        requestType: "VACACIONES_DINERO" as const,
+        daysRequested: c.daysRequested,
+      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const staffRequests: Solicitud[] = (staffRes.solicitudes || []).map((s: any) => ({
+        id: s.id,
+        employeeName: s.requestedByName,
+        employeeCode: "",
+        employeeEmail: s.requestedByEmail,
+        supervisorName: s.supervisorName,
+        supervisorEmail: s.supervisorEmail,
+        dateFrom: s.createdAt,
+        dateTo: s.createdAt,
+        totalDays: 0,
+        status: s.status,
+        currentApprovalLevel: s.currentApprovalLevel,
+        createdAt: s.createdAt,
+        approvalRecords: s.approvalRecords || [],
+        requestType: s.requestType as "NUEVA_POSICION" | "CONTRATACION",
+        positionTitle: s.positionTitle,
+        justification: s.justification,
+      }));
+
+      setSolicitudes([...vacaciones, ...retornos, ...cashOuts, ...staffRequests]);
+    } catch {
+      setSolicitudes([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function isSupervisorMatch(sol: Solicitud): boolean {
@@ -133,6 +215,26 @@ export default function AprobacionesPage() {
     return false;
   }
 
+  function isRelevantToUser(sol: Solicitud): boolean {
+    if (!email) return false;
+    // Admin, RRHH, and GERENTE_PAIS see all requests
+    if (role === "ADMINISTRADOR" || role === "RRHH" || role === "GERENTE_PAIS") return true;
+
+    const e = email.toLowerCase();
+
+    // User is the requestor
+    if (sol.employeeEmail?.toLowerCase() === e) return true;
+
+    // User is the supervisor (check both fields since data may be swapped)
+    if (sol.supervisorEmail?.toLowerCase() === e) return true;
+    if (sol.supervisorName?.toLowerCase() === e) return true;
+
+    // User appeared as approver in approval records
+    if (sol.approvalRecords?.some((r) => r.approverEmail?.toLowerCase() === e)) return true;
+
+    return false;
+  }
+
   function openModal(sol: Solicitud, decision: "APROBADO" | "RECHAZADO" | "DEVUELTO") {
     setModalSolicitud(sol);
     setModalDecision(decision);
@@ -162,6 +264,7 @@ export default function AprobacionesPage() {
           requestId: modalSolicitud.id,
           decision: modalDecision,
           comments: modalComments || null,
+          requestType: modalSolicitud.requestType,
         }),
       });
 
@@ -181,9 +284,17 @@ export default function AprobacionesPage() {
     }
   }
 
-  const filtered = filterStatus
-    ? solicitudes.filter((s) => s.status === filterStatus)
-    : solicitudes;
+  const userRelevant = solicitudes.filter(isRelevantToUser);
+
+  let filtered = userRelevant;
+  if (filterType) {
+    filtered = filtered.filter((s) => s.requestType === filterType);
+  }
+  if (filterStatus) {
+    filtered = filterStatus === "PENDIENTE"
+      ? filtered.filter((s) => s.status.includes("PENDIENTE"))
+      : filtered.filter((s) => s.status === filterStatus);
+  }
 
   const highPriority = filtered.filter((s) =>
     isHighPriority(s.dateFrom, s.status)
@@ -200,7 +311,7 @@ export default function AprobacionesPage() {
       </h1>
       <p className="text-gray-500 mb-6 text-sm">
         Seguimiento en tiempo real del flujo de aprobación de solicitudes de
-        vacaciones.
+        vacaciones, retornos anticipados y vacaciones en dinero.
       </p>
 
       {actionMessage && (
@@ -215,7 +326,72 @@ export default function AprobacionesPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Type Filter */}
+      <div className="flex gap-2 mb-3 flex-wrap items-center">
+        <span className="text-sm text-gray-500">Tipo:</span>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            !filterType
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("")}
+        >
+          Todas
+        </button>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            filterType === "VACACIONES"
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("VACACIONES")}
+        >
+          Vacaciones
+        </button>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            filterType === "RETORNO_ANTICIPADO"
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("RETORNO_ANTICIPADO")}
+        >
+          Retorno Anticipado
+        </button>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            filterType === "VACACIONES_DINERO"
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("VACACIONES_DINERO")}
+        >
+          Vac. en Dinero
+        </button>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            filterType === "NUEVA_POSICION"
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("NUEVA_POSICION")}
+        >
+          Nueva Posición
+        </button>
+        <button
+          className={`px-3 py-1 text-sm rounded-sm border ${
+            filterType === "CONTRATACION"
+              ? "bg-woden-primary text-white border-woden-primary"
+              : "border-gray-300 text-gray-600 hover:border-woden-primary"
+          }`}
+          onClick={() => setFilterType("CONTRATACION")}
+        >
+          Contratación
+        </button>
+      </div>
+
+      {/* Status Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
           className={`px-3 py-1 text-sm rounded-sm border ${
@@ -247,14 +423,14 @@ export default function AprobacionesPage() {
         <table className="w-full">
           <thead>
             <tr>
+              <th className="table-header">Tipo</th>
               <th className="table-header">Empleado</th>
               <th className="table-header">Periodo</th>
               <th className="table-header">Días</th>
               <th className="table-header">Estado</th>
               <th className="table-header">Nivel</th>
-              <th className="table-header">Supervisor</th>
               <th className="table-header">Solicitado</th>
-              <th className="table-header w-36">Acciones</th>
+              <th className="table-header">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -273,18 +449,70 @@ export default function AprobacionesPage() {
             ) : (
               allSorted.map((sol) => (
                 <tr
-                  key={sol.id}
+                  key={`${sol.requestType}-${sol.id}`}
                   className={`hover:bg-woden-primary-lighter ${
                     isHighPriority(sol.dateFrom, sol.status) ? "bg-orange-50" : ""
                   }`}
                 >
                   <td className="table-cell">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded ${
+                        sol.requestType === "RETORNO_ANTICIPADO"
+                          ? "bg-purple-100 text-purple-700"
+                          : sol.requestType === "VACACIONES_DINERO"
+                          ? "bg-green-100 text-green-700"
+                          : sol.requestType === "NUEVA_POSICION"
+                          ? "bg-teal-100 text-teal-700"
+                          : sol.requestType === "CONTRATACION"
+                          ? "bg-indigo-100 text-indigo-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {sol.requestType === "RETORNO_ANTICIPADO"
+                        ? "Retorno"
+                        : sol.requestType === "VACACIONES_DINERO"
+                        ? "Dinero"
+                        : sol.requestType === "NUEVA_POSICION"
+                        ? "Nva. Posición"
+                        : sol.requestType === "CONTRATACION"
+                        ? "Contratación"
+                        : "Vacaciones"}
+                    </span>
+                  </td>
+                  <td className="table-cell">
                     <p className="font-medium">{sol.employeeName}</p>
                     <p className="text-xs text-gray-400">{sol.employeeCode}</p>
                   </td>
                   <td className="table-cell text-sm">
-                    {new Date(sol.dateFrom).toLocaleDateString("es-PE")} -{" "}
-                    {new Date(sol.dateTo).toLocaleDateString("es-PE")}
+                    {(sol.requestType === "NUEVA_POSICION" || sol.requestType === "CONTRATACION") ? (
+                      <>
+                        <span className="font-medium">{sol.positionTitle}</span>
+                        <br />
+                        <span className="text-xs text-gray-400 line-clamp-1">
+                          {sol.justification}
+                        </span>
+                      </>
+                    ) : sol.requestType === "VACACIONES_DINERO" ? (
+                      <span className="text-green-600 font-medium">
+                        {sol.daysRequested || sol.totalDays} días en dinero
+                      </span>
+                    ) : sol.requestType === "RETORNO_ANTICIPADO" && sol.returnDate ? (
+                      <>
+                        <span className="text-purple-600 font-medium">
+                          Retorno: {new Date(sol.returnDate).toLocaleDateString("es-PE")}
+                        </span>
+                        <br />
+                        <span className="text-xs text-gray-400">
+                          Vac: {new Date(sol.dateFrom).toLocaleDateString("es-PE")} -{" "}
+                          {new Date(sol.dateTo).toLocaleDateString("es-PE")}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {new Date(sol.dateFrom).toLocaleDateString("es-PE")} -{" "}
+                        {new Date(sol.dateTo).toLocaleDateString("es-PE")}
+                      </>
+                    )}
                   </td>
                   <td className="table-cell text-center">{sol.totalDays}</td>
                   <td className="table-cell">
@@ -297,42 +525,40 @@ export default function AprobacionesPage() {
                       ? `${sol.currentApprovalLevel}/3`
                       : "-"}
                   </td>
-                  <td className="table-cell text-xs text-gray-500">
-                    {sol.supervisorName}
-                  </td>
                   <td className="table-cell text-sm text-gray-500">
                     {new Date(sol.createdAt).toLocaleDateString("es-PE")}
                   </td>
                   <td className="table-cell">
-                    <div className="flex gap-1 flex-wrap">
-                      {canApproveAtLevel(sol) && (
-                        <>
+                    {canApproveAtLevel(sol) || canReturnLevel(sol) ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {canApproveAtLevel(sol) && (
+                          <>
+                            <button
+                              className="text-xs bg-green-600 text-white px-2 py-1 rounded-sm hover:bg-green-700"
+                              onClick={() => openModal(sol, "APROBADO")}
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              className="text-xs bg-red-500 text-white px-2 py-1 rounded-sm hover:bg-red-600"
+                              onClick={() => openModal(sol, "RECHAZADO")}
+                            >
+                              Rechazar
+                            </button>
+                          </>
+                        )}
+                        {canReturnLevel(sol) && (
                           <button
-                            className="text-xs bg-green-600 text-white px-2 py-1 rounded-sm hover:bg-green-700"
-                            onClick={() => openModal(sol, "APROBADO")}
+                            className="text-xs bg-yellow-500 text-white px-2 py-1 rounded-sm hover:bg-yellow-600"
+                            onClick={() => openModal(sol, "DEVUELTO")}
                           >
-                            Aprobar
+                            Devolver
                           </button>
-                          <button
-                            className="text-xs bg-red-500 text-white px-2 py-1 rounded-sm hover:bg-red-600"
-                            onClick={() => openModal(sol, "RECHAZADO")}
-                          >
-                            Rechazar
-                          </button>
-                        </>
-                      )}
-                      {canReturnLevel(sol) && (
-                        <button
-                          className="text-xs bg-yellow-500 text-white px-2 py-1 rounded-sm hover:bg-yellow-600"
-                          onClick={() => openModal(sol, "DEVUELTO")}
-                        >
-                          Devolver
-                        </button>
-                      )}
-                      {!canApproveAtLevel(sol) && !canReturnLevel(sol) && (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -342,7 +568,7 @@ export default function AprobacionesPage() {
       </div>
 
       {/* Approval History */}
-      {solicitudes.some((s) => s.approvalRecords.length > 0) && (
+      {userRelevant.some((s) => s.approvalRecords.length > 0) && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">
             Historial de Aprobaciones
@@ -351,6 +577,7 @@ export default function AprobacionesPage() {
             <table className="w-full">
               <thead>
                 <tr>
+                  <th className="table-header">Tipo</th>
                   <th className="table-header">Empleado</th>
                   <th className="table-header">Nivel</th>
                   <th className="table-header">Aprobador</th>
@@ -360,11 +587,15 @@ export default function AprobacionesPage() {
                 </tr>
               </thead>
               <tbody>
-                {solicitudes
+                {userRelevant
                   .flatMap((s) =>
                     s.approvalRecords
                       .filter((r) => r.decidedAt)
-                      .map((r) => ({ ...r, employeeName: s.employeeName }))
+                      .map((r) => ({
+                        ...r,
+                        employeeName: s.employeeName,
+                        requestType: s.requestType,
+                      }))
                   )
                   .sort(
                     (a, b) =>
@@ -374,6 +605,31 @@ export default function AprobacionesPage() {
                   .slice(0, 20)
                   .map((r, i) => (
                     <tr key={i} className="hover:bg-woden-primary-lighter">
+                      <td className="table-cell">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            r.requestType === "RETORNO_ANTICIPADO"
+                              ? "bg-purple-100 text-purple-700"
+                              : r.requestType === "VACACIONES_DINERO"
+                              ? "bg-green-100 text-green-700"
+                              : r.requestType === "NUEVA_POSICION"
+                              ? "bg-teal-100 text-teal-700"
+                              : r.requestType === "CONTRATACION"
+                              ? "bg-indigo-100 text-indigo-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {r.requestType === "RETORNO_ANTICIPADO"
+                            ? "Retorno"
+                            : r.requestType === "VACACIONES_DINERO"
+                            ? "Dinero"
+                            : r.requestType === "NUEVA_POSICION"
+                            ? "Nva. Pos."
+                            : r.requestType === "CONTRATACION"
+                            ? "Contrat."
+                            : "Vac."}
+                        </span>
+                      </td>
                       <td className="table-cell text-sm">{r.employeeName}</td>
                       <td className="table-cell text-sm">
                         {LEVEL_LABELS[r.level] || `Nivel ${r.level}`}
@@ -412,26 +668,59 @@ export default function AprobacionesPage() {
           <div className="bg-white rounded-sm shadow-xl max-w-lg w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {modalDecision === "APROBADO"
-                ? "Aprobar Solicitud"
+                ? modalSolicitud.requestType === "RETORNO_ANTICIPADO"
+                  ? "Aprobar Retorno Anticipado"
+                  : modalSolicitud.requestType === "VACACIONES_DINERO"
+                  ? "Aprobar Vacaciones en Dinero"
+                  : "Aprobar Solicitud"
                 : modalDecision === "DEVUELTO"
                   ? "Devolver al Nivel Anterior"
-                  : "Rechazar Solicitud"}
+                  : modalSolicitud.requestType === "RETORNO_ANTICIPADO"
+                    ? "Rechazar Retorno Anticipado"
+                    : modalSolicitud.requestType === "VACACIONES_DINERO"
+                    ? "Rechazar Vacaciones en Dinero"
+                    : "Rechazar Solicitud"}
             </h3>
 
             <div className="mb-4 p-3 bg-gray-50 rounded-sm text-sm space-y-1">
               <p>
+                <span className="text-gray-500">Tipo:</span>{" "}
+                <span className="font-medium">
+                  {modalSolicitud.requestType === "RETORNO_ANTICIPADO"
+                    ? "Retorno Anticipado"
+                    : modalSolicitud.requestType === "VACACIONES_DINERO"
+                    ? "Vacaciones en Dinero"
+                    : "Vacaciones"}
+                </span>
+              </p>
+              <p>
                 <span className="text-gray-500">Empleado:</span>{" "}
                 <span className="font-medium">{modalSolicitud.employeeName}</span>
               </p>
-              <p>
-                <span className="text-gray-500">Periodo:</span>{" "}
-                {new Date(modalSolicitud.dateFrom).toLocaleDateString("es-PE")} -{" "}
-                {new Date(modalSolicitud.dateTo).toLocaleDateString("es-PE")}
-              </p>
-              <p>
-                <span className="text-gray-500">Días:</span>{" "}
-                {modalSolicitud.totalDays}
-              </p>
+              {modalSolicitud.requestType === "RETORNO_ANTICIPADO" && modalSolicitud.returnDate && (
+                <p>
+                  <span className="text-gray-500">Fecha de retorno:</span>{" "}
+                  {new Date(modalSolicitud.returnDate).toLocaleDateString("es-PE")}
+                </p>
+              )}
+              {modalSolicitud.requestType === "VACACIONES_DINERO" ? (
+                <p>
+                  <span className="text-gray-500">Días a pagar:</span>{" "}
+                  {modalSolicitud.daysRequested || modalSolicitud.totalDays} días en dinero
+                </p>
+              ) : (
+                <>
+                  <p>
+                    <span className="text-gray-500">Periodo vacaciones:</span>{" "}
+                    {new Date(modalSolicitud.dateFrom).toLocaleDateString("es-PE")} -{" "}
+                    {new Date(modalSolicitud.dateTo).toLocaleDateString("es-PE")}
+                  </p>
+                  <p>
+                    <span className="text-gray-500">Días:</span>{" "}
+                    {modalSolicitud.totalDays}
+                  </p>
+                </>
+              )}
               <p>
                 <span className="text-gray-500">Nivel actual:</span>{" "}
                 {LEVEL_LABELS[modalSolicitud.currentApprovalLevel] ||

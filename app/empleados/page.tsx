@@ -29,6 +29,12 @@ const EMPTY_FORM = {
   position: "",
 };
 
+interface CostCenter {
+  id: string;
+  code: string;
+  description: string;
+}
+
 export default function EmpleadosPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +45,33 @@ export default function EmpleadosPage() {
   const [csvUploading, setCsvUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [sortColumn, setSortColumn] = useState<string>("fullName");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const isEditing = editingId !== null;
 
+  function isSelfSupervisorPosition(position: string): boolean {
+    const p = position.toLowerCase().trim();
+    return p === "gerente general" || p === "country manager";
+  }
+
   useEffect(() => {
     loadEmployees();
+    loadCostCenters();
   }, []);
+
+  async function loadCostCenters() {
+    try {
+      const res = await fetch("/api/centros-costos");
+      const data = await res.json();
+      setCostCenters(data.costCenters || []);
+    } catch {
+      // ignore
+    }
+  }
 
   async function loadEmployees() {
     setLoading(true);
@@ -178,6 +203,64 @@ export default function EmpleadosPage() {
     }
   }
 
+  function handleSort(column: string) {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  }
+
+  function getSortedEmployees(): Employee[] {
+    return [...employees].sort((a, b) => {
+      let valA: string | number = "";
+      let valB: string | number = "";
+
+      switch (sortColumn) {
+        case "employeeCode":
+          valA = a.employeeCode.toLowerCase();
+          valB = b.employeeCode.toLowerCase();
+          break;
+        case "fullName":
+          valA = a.fullName.toLowerCase();
+          valB = b.fullName.toLowerCase();
+          break;
+        case "email":
+          valA = a.email.toLowerCase();
+          valB = b.email.toLowerCase();
+          break;
+        case "position":
+          valA = a.position.toLowerCase();
+          valB = b.position.toLowerCase();
+          break;
+        case "costCenter":
+          valA = a.costCenter.toLowerCase();
+          valB = b.costCenter.toLowerCase();
+          break;
+        case "hireDate":
+          valA = new Date(a.hireDate).getTime();
+          valB = new Date(b.hireDate).getTime();
+          break;
+        case "terminationDate":
+          valA = a.terminationDate ? new Date(a.terminationDate).getTime() : 0;
+          valB = b.terminationDate ? new Date(b.terminationDate).getTime() : 0;
+          break;
+        case "estado":
+          valA = a.terminationDate ? 1 : 0;
+          valB = b.terminationDate ? 1 : 0;
+          break;
+      }
+
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const sortArrow = (column: string) =>
+    sortColumn === column ? (sortDirection === "asc" ? " ▲" : " ▼") : "";
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -307,28 +390,44 @@ export default function EmpleadosPage() {
             </div>
             <div>
               <label className="label-field">Centro de Costos</label>
-              <input
-                type="text"
-                className="input-field"
-                value={form.costCenter}
-                onChange={(e) =>
-                  setForm({ ...form, costCenter: e.target.value })
-                }
-                placeholder="CC-100"
-                required
-              />
-            </div>
-            <div>
-              <label className="label-field">Descripción de Centro de Costos</label>
-              <input
-                type="text"
-                className="input-field"
-                value={form.costCenterDesc}
-                onChange={(e) =>
-                  setForm({ ...form, costCenterDesc: e.target.value })
-                }
-                placeholder="Ej: Tecnología, Finanzas, Operaciones"
-              />
+              {costCenters.length > 0 ? (
+                <select
+                  className="input-field"
+                  value={form.costCenter}
+                  onChange={(e) => {
+                    const selected = costCenters.find((cc) => cc.code === e.target.value);
+                    setForm({
+                      ...form,
+                      costCenter: e.target.value,
+                      costCenterDesc: selected?.description || "",
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Seleccione un centro de costos...</option>
+                  {costCenters.map((cc) => (
+                    <option key={cc.id} value={cc.code}>
+                      {cc.code} - {cc.description}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="input-field"
+                  value={form.costCenter}
+                  onChange={(e) =>
+                    setForm({ ...form, costCenter: e.target.value })
+                  }
+                  placeholder="CC-100"
+                  required
+                />
+              )}
+              {costCenters.length === 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Configure centros de costos en Configuración para usar la lista desplegable.
+                </p>
+              )}
             </div>
             <div>
               <label className="label-field">Cargo</label>
@@ -336,23 +435,60 @@ export default function EmpleadosPage() {
                 type="text"
                 className="input-field"
                 value={form.position}
-                onChange={(e) =>
-                  setForm({ ...form, position: e.target.value })
-                }
+                onChange={(e) => {
+                  const newPosition = e.target.value;
+                  if (isSelfSupervisorPosition(newPosition) && form.fullName && form.email) {
+                    setForm({
+                      ...form,
+                      position: newPosition,
+                      supervisorName: form.fullName,
+                      supervisorEmail: form.email,
+                    });
+                  } else {
+                    setForm({ ...form, position: newPosition });
+                  }
+                }}
                 required
               />
+              {isSelfSupervisorPosition(form.position) && (
+                <p className="text-xs text-woden-primary mt-1">
+                  El supervisor se asigna automáticamente como el mismo empleado.
+                </p>
+              )}
             </div>
             <div>
-              <label className="label-field">Nombre del Supervisor</label>
-              <input
-                type="text"
-                className="input-field"
-                value={form.supervisorName}
-                onChange={(e) =>
-                  setForm({ ...form, supervisorName: e.target.value })
-                }
-                required
-              />
+              <label className="label-field">Supervisor</label>
+              {isSelfSupervisorPosition(form.position) ? (
+                <input
+                  type="text"
+                  className="input-field bg-gray-50"
+                  value={form.supervisorName ? `${form.supervisorName} (${form.supervisorEmail})` : "Se asignará automáticamente"}
+                  disabled
+                />
+              ) : (
+                <select
+                  className="input-field"
+                  value={form.supervisorEmail}
+                  onChange={(e) => {
+                    const sup = employees.find((emp) => emp.email === e.target.value);
+                    setForm({
+                      ...form,
+                      supervisorName: sup?.fullName || "",
+                      supervisorEmail: e.target.value,
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Seleccione un supervisor...</option>
+                  {employees
+                    .filter((emp) => emp.id !== editingId && !emp.terminationDate)
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.email}>
+                        {emp.fullName} ({emp.email})
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="label-field">Email del Supervisor</label>
@@ -360,10 +496,7 @@ export default function EmpleadosPage() {
                 type="email"
                 className="input-field"
                 value={form.supervisorEmail}
-                onChange={(e) =>
-                  setForm({ ...form, supervisorEmail: e.target.value })
-                }
-                required
+                disabled
               />
             </div>
           </div>
@@ -378,14 +511,14 @@ export default function EmpleadosPage() {
         <table className="w-full">
           <thead>
             <tr>
-              <th className="table-header">Código</th>
-              <th className="table-header">Nombre</th>
-              <th className="table-header">Email</th>
-              <th className="table-header">Centro de Costos</th>
-              <th className="table-header">Desc. Centro de Costos</th>
-              <th className="table-header">Fecha Ingreso</th>
-              <th className="table-header">Fecha Cese</th>
-              <th className="table-header">Estado</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("employeeCode")}>Código{sortArrow("employeeCode")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("fullName")}>Nombre{sortArrow("fullName")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("email")}>Email{sortArrow("email")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("position")}>Cargo{sortArrow("position")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("costCenter")}>Centro de Costos{sortArrow("costCenter")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("hireDate")}>Fecha Ingreso{sortArrow("hireDate")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("terminationDate")}>Fecha Cese{sortArrow("terminationDate")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("estado")}>Estado{sortArrow("estado")}</th>
               <th className="table-header w-20">Acción</th>
             </tr>
           </thead>
@@ -403,7 +536,7 @@ export default function EmpleadosPage() {
                 </td>
               </tr>
             ) : (
-              employees.map((emp) => (
+              getSortedEmployees().map((emp) => (
                 <tr
                   key={emp.id}
                   className={`hover:bg-woden-primary-lighter ${
@@ -415,8 +548,17 @@ export default function EmpleadosPage() {
                   </td>
                   <td className="table-cell font-medium">{emp.fullName}</td>
                   <td className="table-cell text-gray-500">{emp.email}</td>
-                  <td className="table-cell">{emp.costCenter}</td>
-                  <td className="table-cell text-gray-500">{emp.costCenterDesc || "—"}</td>
+                  <td className="table-cell">{emp.position}</td>
+                  <td className="table-cell">
+                    {(() => {
+                      const cc = costCenters.find((c) => c.code === emp.costCenter);
+                      return cc
+                        ? `${emp.costCenter} - ${cc.description}`
+                        : emp.costCenterDesc
+                          ? `${emp.costCenter} - ${emp.costCenterDesc}`
+                          : emp.costCenter;
+                    })()}
+                  </td>
                   <td className="table-cell">
                     {new Date(emp.hireDate).toLocaleDateString("es-PE")}
                   </td>
@@ -496,6 +638,11 @@ export default function EmpleadosPage() {
   );
 }
 
+function isSelfSupervisorPosition(position: string): boolean {
+  const p = position.toLowerCase().trim();
+  return p === "gerente general" || p === "country manager";
+}
+
 function SupervisorSection({
   employees,
   onUpdate,
@@ -513,12 +660,20 @@ function SupervisorSection({
   } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId);
+  const isSelfSupervisor = selectedEmployee ? isSelfSupervisorPosition(selectedEmployee.position) : false;
+
   function handleSelectEmployee(empId: string) {
     setSelectedEmployeeId(empId);
     const emp = employees.find((e) => e.id === empId);
     if (emp) {
-      setSupervisorName(emp.supervisorName);
-      setSupervisorEmail(emp.supervisorEmail);
+      if (isSelfSupervisorPosition(emp.position)) {
+        setSupervisorName(emp.fullName);
+        setSupervisorEmail(emp.email);
+      } else {
+        setSupervisorName(emp.supervisorName);
+        setSupervisorEmail(emp.supervisorEmail);
+      }
     } else {
       setSupervisorName("");
       setSupervisorEmail("");
@@ -615,16 +770,42 @@ function SupervisorSection({
 
             {selectedEmployeeId && (
               <>
+                {isSelfSupervisor && (
+                  <div className="p-3 bg-woden-primary-lighter rounded-sm text-sm text-woden-primary">
+                    El cargo de este empleado es <strong>{selectedEmployee?.position}</strong>. El supervisor se asigna automáticamente como el mismo empleado.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="label-field">Nombre del Supervisor</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={supervisorName}
-                      onChange={(e) => setSupervisorName(e.target.value)}
-                      required
-                    />
+                    <label className="label-field">Supervisor</label>
+                    {isSelfSupervisor ? (
+                      <input
+                        type="text"
+                        className="input-field bg-gray-50"
+                        value={`${supervisorName} (${supervisorEmail})`}
+                        disabled
+                      />
+                    ) : (
+                      <select
+                        className="input-field"
+                        value={supervisorEmail}
+                        onChange={(e) => {
+                          const sup = employees.find((emp) => emp.email === e.target.value);
+                          setSupervisorName(sup?.fullName || "");
+                          setSupervisorEmail(e.target.value);
+                        }}
+                        required
+                      >
+                        <option value="">Seleccione un supervisor...</option>
+                        {employees
+                          .filter((emp) => emp.id !== selectedEmployeeId && !emp.terminationDate)
+                          .map((emp) => (
+                            <option key={emp.id} value={emp.email}>
+                              {emp.fullName} ({emp.email})
+                            </option>
+                          ))}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="label-field">Email del Supervisor</label>
@@ -632,8 +813,7 @@ function SupervisorSection({
                       type="email"
                       className="input-field"
                       value={supervisorEmail}
-                      onChange={(e) => setSupervisorEmail(e.target.value)}
-                      required
+                      disabled
                     />
                   </div>
                 </div>

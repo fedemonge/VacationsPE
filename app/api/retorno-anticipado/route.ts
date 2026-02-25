@@ -17,7 +17,18 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ retornos });
+  // Manually fetch approval records for each early return (polymorphic relation)
+  const retornosWithRecords = await Promise.all(
+    retornos.map(async (ret) => {
+      const approvalRecords = await prisma.approvalRecord.findMany({
+        where: { requestId: ret.id },
+        orderBy: { createdAt: "asc" },
+      });
+      return { ...ret, approvalRecords };
+    })
+  );
+
+  return NextResponse.json({ retornos: retornosWithRecords });
 }
 
 export async function POST(request: NextRequest) {
@@ -74,6 +85,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Empleado no encontrado" },
+        { status: 404 }
+      );
+    }
+
     const retorno = await prisma.earlyReturnRequest.create({
       data: {
         vacationRequestId,
@@ -81,12 +103,13 @@ export async function POST(request: NextRequest) {
         returnDate: returnDateObj,
         employeeJustification,
         approverJustification,
-        status: "PENDIENTE",
+        status: "NIVEL_1_PENDIENTE",
+        currentApprovalLevel: 1,
       },
     });
 
     console.log(
-      `[RETORNO] CREADO: ${retorno.id} - vacación ${vacationRequestId} - retorno ${returnDate}`
+      `[RETORNO] CREADO: ${retorno.id} - vacación ${vacationRequestId} - retorno ${returnDate} - ${employee.fullName}`
     );
 
     return NextResponse.json(retorno, { status: 201 });

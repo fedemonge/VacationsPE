@@ -3,12 +3,36 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
+interface Consumption {
+  id: string;
+  daysConsumed: number;
+  requestId: string;
+  dateFrom: string;
+  dateTo: string;
+  totalRequestDays: number;
+  status: string;
+  type: "TOMADA" | "EN_CURSO" | "PROGRAMADA" | "DINERO";
+}
+
 interface Accrual {
   accrualYear: number;
   totalDaysAccrued: number;
   totalDaysConsumed: number;
   remainingBalance: number;
   monthsAccrued: number;
+  daysTaken: number;
+  daysProgrammed: number;
+  untrackedConsumed: number;
+  effectiveBalance: number;
+  consumptions: Consumption[];
+}
+
+interface PendingRequest {
+  id: string;
+  dateFrom: string;
+  dateTo: string;
+  totalDays: number;
+  status: string;
 }
 
 interface EmployeeBalance {
@@ -17,7 +41,10 @@ interface EmployeeBalance {
   fullName: string;
   costCenter: string;
   accruals: Accrual[];
+  pendingRequests: PendingRequest[];
   totalAvailable: number;
+  totalEffective: number;
+  totalProgrammed: number;
 }
 
 interface Employee {
@@ -37,6 +64,21 @@ interface Adjustment {
   adjustedBy: string;
   createdAt: string;
   employee: { fullName: string; employeeCode: string };
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  NIVEL_1_PENDIENTE: "Nivel 1",
+  NIVEL_2_PENDIENTE: "Nivel 2",
+  NIVEL_3_PENDIENTE: "Nivel 3",
+  APROBADA: "Aprobada",
+};
+
+function formatDate(d: string): string {
+  return new Date(d).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 export default function SaldosPage() {
@@ -167,13 +209,28 @@ export default function SaldosPage() {
     CORRECCION: "Corrección",
   };
 
+  function getConsumptionTypeBadge(type: string): { label: string; className: string } {
+    switch (type) {
+      case "TOMADA":
+        return { label: "Tomada", className: "bg-gray-100 text-gray-700" };
+      case "EN_CURSO":
+        return { label: "En curso", className: "bg-blue-100 text-blue-700" };
+      case "PROGRAMADA":
+        return { label: "Programada", className: "bg-amber-100 text-amber-700" };
+      case "DINERO":
+        return { label: "En dinero", className: "bg-green-100 text-green-700" };
+      default:
+        return { label: type, className: "bg-gray-100 text-gray-600" };
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-2">
         Saldos de Vacaciones
       </h1>
       <p className="text-gray-500 mb-6 text-sm">
-        Control de saldo desglosado por periodo de devengamiento. El consumo
+        Extracto de vacaciones por periodo de devengamiento. El consumo
         sigue lógica FIFO (primero en entrar, primero en salir).
       </p>
 
@@ -433,7 +490,7 @@ export default function SaldosPage() {
         ))}
       </div>
 
-      {/* Balances Table */}
+      {/* Balances — Statement View */}
       <div className="space-y-3">
         {loading ? (
           <div className="card text-center text-gray-400">Cargando...</div>
@@ -464,67 +521,209 @@ export default function SaldosPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-woden-primary">
-                    {emp.totalAvailable.toFixed(1)}
+                    {emp.totalEffective.toFixed(1)}
                   </p>
                   <p className="text-xs text-gray-400">días disponibles</p>
+                  {emp.totalProgrammed > 0 && (
+                    <p className="text-xs text-amber-600">
+                      {emp.totalProgrammed.toFixed(1)} programados
+                    </p>
+                  )}
                 </div>
               </button>
 
-              {/* Expanded Accrual Details */}
+              {/* Expanded Statement View */}
               {expandedEmployee === emp.id && (
-                <div className="border-t border-gray-100 p-4">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-left text-xs font-medium text-gray-500 pb-2">
-                          Periodo
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 pb-2">
-                          Meses
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 pb-2">
-                          Devengado
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 pb-2">
-                          Consumido
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 pb-2">
-                          Saldo
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {emp.accruals.map((acc) => (
-                        <tr
-                          key={acc.accrualYear}
-                          className="border-t border-gray-50"
+                <div className="border-t border-gray-100">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-green-600">
+                        {emp.totalEffective.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">Saldo Disponible</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-amber-600">
+                        {emp.totalProgrammed.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">Programadas</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-500">
+                        {(emp.totalEffective - emp.totalProgrammed).toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">Después de Programadas</p>
+                    </div>
+                  </div>
+
+                  {/* Pending Requests */}
+                  {emp.pendingRequests.length > 0 && (
+                    <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                      <p className="text-xs font-semibold text-blue-700 mb-2">
+                        Solicitudes en proceso de aprobación
+                      </p>
+                      {emp.pendingRequests.map((req) => (
+                        <div
+                          key={req.id}
+                          className="flex justify-between items-center text-sm text-blue-800 py-1"
                         >
-                          <td
-                            className={`py-2 text-sm ${getAgingColor(acc.accrualYear)}`}
-                          >
-                            {acc.accrualYear}
-                          </td>
-                          <td className="py-2 text-sm text-right text-gray-500">
-                            {acc.monthsAccrued}/12
-                          </td>
-                          <td className="py-2 text-sm text-right">
-                            {acc.totalDaysAccrued.toFixed(1)}
-                          </td>
-                          <td className="py-2 text-sm text-right text-gray-500">
-                            {acc.totalDaysConsumed.toFixed(1)}
-                          </td>
-                          <td
-                            className={`py-2 text-sm text-right font-medium ${getAgingColor(acc.accrualYear)}`}
-                          >
-                            {acc.remainingBalance.toFixed(1)}
-                          </td>
-                        </tr>
+                          <span>
+                            {formatDate(req.dateFrom)} — {formatDate(req.dateTo)}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-600">
+                              {STATUS_LABELS[req.status] || req.status}
+                            </span>
+                            <span className="font-medium">
+                              {req.totalDays} días
+                            </span>
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  )}
+
+                  {/* Accrual Periods — Statement */}
+                  {emp.accruals.map((acc) => (
+                    <div
+                      key={acc.accrualYear}
+                      className="border-b border-gray-100 last:border-b-0"
+                    >
+                      {/* Period Header */}
+                      <div className="flex justify-between items-center px-4 py-3 bg-woden-primary-lighter">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`text-sm font-bold ${getAgingColor(acc.accrualYear)}`}
+                          >
+                            Periodo {acc.accrualYear}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            ({acc.monthsAccrued}/12 meses)
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">
+                          Devengado: {acc.totalDaysAccrued.toFixed(1)} días
+                        </span>
+                      </div>
+
+                      {/* Movements Table */}
+                      {acc.consumptions.length > 0 || acc.untrackedConsumed > 0 ? (
+                        <table className="w-full">
+                          <thead>
+                            <tr>
+                              <th className="text-left text-xs font-medium text-gray-400 px-4 py-2">
+                                Concepto
+                              </th>
+                              <th className="text-center text-xs font-medium text-gray-400 px-2 py-2">
+                                Estado
+                              </th>
+                              <th className="text-right text-xs font-medium text-gray-400 px-4 py-2">
+                                Días
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {acc.untrackedConsumed > 0 && (
+                              <tr className="border-t border-gray-50">
+                                <td className="px-4 py-2 text-sm text-gray-500 italic">
+                                  Vacaciones tomadas (carga inicial)
+                                </td>
+                                <td className="px-2 py-2 text-center">
+                                  <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                                    Histórico
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right font-medium text-red-600">
+                                  -{acc.untrackedConsumed.toFixed(1)}
+                                </td>
+                              </tr>
+                            )}
+                            {acc.consumptions.map((c) => {
+                              const badge = getConsumptionTypeBadge(c.type);
+                              return (
+                                <tr
+                                  key={c.id}
+                                  className={`border-t border-gray-50 ${
+                                    c.type === "PROGRAMADA" ? "bg-amber-50/50" : ""
+                                  }`}
+                                >
+                                  <td className="px-4 py-2 text-sm text-gray-700">
+                                    {c.type === "DINERO" ? (
+                                      <>
+                                        Pago en dinero — {formatDate(c.dateFrom)}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {formatDate(c.dateFrom)} — {formatDate(c.dateTo)}
+                                        {c.totalRequestDays !== c.daysConsumed && (
+                                          <span className="text-xs text-gray-400 ml-1">
+                                            ({c.daysConsumed.toFixed(1)} de {c.totalRequestDays} días FIFO)
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </td>
+                                  <td className="px-2 py-2 text-center">
+                                    <span
+                                      className={`text-xs px-2 py-0.5 rounded ${badge.className}`}
+                                    >
+                                      {badge.label}
+                                    </span>
+                                  </td>
+                                  <td
+                                    className={`px-4 py-2 text-sm text-right font-medium ${
+                                      c.type === "PROGRAMADA"
+                                        ? "text-amber-600"
+                                        : c.type === "DINERO"
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }`}
+                                  >
+                                    -{c.daysConsumed.toFixed(1)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p className="px-4 py-3 text-xs text-gray-400 italic">
+                          Sin movimientos registrados
+                        </p>
+                      )}
+
+                      {/* Period Summary */}
+                      <div className="px-4 py-3 bg-gray-50 flex justify-between text-sm">
+                        <div className="flex gap-6">
+                          {acc.daysTaken > 0 && (
+                            <span className="text-gray-600">
+                              Tomadas:{" "}
+                              <span className="font-medium text-red-600">
+                                {acc.daysTaken.toFixed(1)}
+                              </span>
+                            </span>
+                          )}
+                          {acc.daysProgrammed > 0 && (
+                            <span className="text-gray-600">
+                              Programadas:{" "}
+                              <span className="font-medium text-amber-600">
+                                {acc.daysProgrammed.toFixed(1)}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`font-bold ${getAgingColor(acc.accrualYear)}`}
+                        >
+                          Saldo: {acc.effectiveBalance.toFixed(1)} días
+                        </span>
+                      </div>
+                    </div>
+                  ))}
 
                   {/* Aging Legend */}
-                  <div className="mt-3 flex gap-4 text-xs">
+                  <div className="px-4 py-3 flex gap-4 text-xs border-t border-gray-100">
                     <span className="text-red-600">● +2 años (crítico)</span>
                     <span className="text-yellow-600">● 1 año (atención)</span>
                     <span className="text-green-600">● Año actual</span>

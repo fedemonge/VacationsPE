@@ -14,11 +14,22 @@ export async function GET(request: NextRequest) {
 
   const solicitudes = await prisma.vacationRequest.findMany({
     where,
-    include: { employee: true, approvalRecords: true },
+    include: { employee: true },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ solicitudes });
+  // Manually fetch approval records for each solicitud (polymorphic relation)
+  const solicitudesWithRecords = await Promise.all(
+    solicitudes.map(async (sol) => {
+      const approvalRecords = await prisma.approvalRecord.findMany({
+        where: { requestId: sol.id },
+        orderBy: { createdAt: "asc" },
+      });
+      return { ...sol, approvalRecords };
+    })
+  );
+
+  return NextResponse.json({ solicitudes: solicitudesWithRecords });
 }
 
 export async function POST(request: NextRequest) {

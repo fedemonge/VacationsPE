@@ -174,12 +174,16 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      const updateData: Record<string, string> = {
+        supervisorName,
+        supervisorEmail: supervisorEmail.trim().toLowerCase(),
+      };
+      if (entry.fullName) updateData.fullName = entry.fullName;
+      if (entry.position) updateData.position = entry.position;
+
       await prisma.employee.update({
         where: { id: employee.id },
-        data: {
-          supervisorName,
-          supervisorEmail: supervisorEmail.trim().toLowerCase(),
-        },
+        data: updateData,
       });
 
       updated++;
@@ -196,6 +200,7 @@ export async function POST(request: NextRequest) {
       notFound,
       errors: errors.length > 0 ? errors : undefined,
       total: employees.length,
+      syncedAt: new Date().toISOString(),
     });
   } catch (error) {
     console.error("[SUPERVISORES] SYNC ERROR:", error);

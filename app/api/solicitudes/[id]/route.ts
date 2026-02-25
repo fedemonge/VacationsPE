@@ -9,7 +9,6 @@ export async function GET(
     where: { id: params.id },
     include: {
       employee: true,
-      approvalRecords: { orderBy: { level: "asc" } },
       vacationConsumptions: { include: { accrual: true } },
     },
   });
@@ -21,7 +20,12 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(solicitud);
+  const approvalRecords = await prisma.approvalRecord.findMany({
+    where: { requestId: params.id },
+    orderBy: { level: "asc" },
+  });
+
+  return NextResponse.json({ ...solicitud, approvalRecords });
 }
 
 export async function PATCH(

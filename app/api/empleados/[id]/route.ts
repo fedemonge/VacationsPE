@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function isSelfSupervisorPosition(position: string): boolean {
+  const p = position.toLowerCase().trim();
+  return p === "gerente general" || p === "country manager";
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -54,6 +59,20 @@ export async function PATCH(
     if (supervisorName !== undefined) data.supervisorName = supervisorName;
     if (supervisorEmail !== undefined) data.supervisorEmail = supervisorEmail;
     if (position !== undefined) data.position = position;
+
+    // Enforce self-supervisor for Gerente General / Country Manager
+    const effectivePosition = (position ?? (await prisma.employee.findUnique({ where: { id: params.id }, select: { position: true } }))?.position) as string | undefined;
+    if (effectivePosition && isSelfSupervisorPosition(effectivePosition)) {
+      // Resolve the final name/email from what's being saved or the existing record
+      const existing = await prisma.employee.findUnique({
+        where: { id: params.id },
+        select: { fullName: true, email: true },
+      });
+      const empName = (data.fullName as string) || existing?.fullName || "";
+      const empEmail = (data.email as string) || existing?.email || "";
+      data.supervisorName = empName;
+      data.supervisorEmail = empEmail;
+    }
 
     const employee = await prisma.employee.update({
       where: { id: params.id },

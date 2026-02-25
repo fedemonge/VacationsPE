@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function isSelfSupervisorPosition(position: string): boolean {
+  const p = position.toLowerCase().trim();
+  return p === "gerente general" || p === "country manager";
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const costCenter = searchParams.get("costCenter");
@@ -53,6 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce self-supervisor for Gerente General / Country Manager
+    const finalSupervisorName = isSelfSupervisorPosition(position) ? fullName : supervisorName;
+    const finalSupervisorEmail = isSelfSupervisorPosition(position) ? email : supervisorEmail;
+
     const employee = await prisma.employee.create({
       data: {
         employeeCode,
@@ -62,8 +71,8 @@ export async function POST(request: NextRequest) {
         terminationDate: terminationDate ? new Date(terminationDate) : null,
         costCenter,
         costCenterDesc: costCenterDesc || "",
-        supervisorName,
-        supervisorEmail,
+        supervisorName: finalSupervisorName,
+        supervisorEmail: finalSupervisorEmail,
         position,
       },
     });
