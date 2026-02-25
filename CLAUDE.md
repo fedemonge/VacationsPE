@@ -159,7 +159,8 @@ VacationsPE/
 │   └── dev.db                            # Base de datos SQLite (dev only)
 ├── types/index.ts                        # Tipos TypeScript
 ├── public/woden-logo.png                 # Logo Woden
-└── .env                                  # Variables de entorno
+├── amplify.yml                           # Config build AWS Amplify (swap sqlite→postgresql + seed)
+└── .env                                  # Variables de entorno (local: SQLite)
 ```
 
 ## Navegación (Header)
@@ -321,10 +322,40 @@ Los aprobadores de nivel 2+ pueden devolver al nivel anterior.
 - **NUNCA** usar `any` en TypeScript
 - Logging: `console.log([MODULO] ACCION: detalle)`
 
-## Variables de Entorno
+## Deployment — AWS Amplify
+
+### Arquitectura
+- **Local**: SQLite (`file:./dev.db`) — schema provider = `sqlite`
+- **Producción**: PostgreSQL (AWS RDS) — `amplify.yml` swaps provider to `postgresql` during build
+
+### Archivos clave
+- `prisma/schema.prisma` — usa `env("DATABASE_URL")`, provider `sqlite` (para dev local)
+- `amplify.yml` — configuración de build para Amplify:
+  1. `npm ci`
+  2. `sed` swap provider sqlite → postgresql
+  3. `prisma generate` + `prisma db push`
+  4. `tsx prisma/seed.ts` (crea admin, roles, datos iniciales)
+  5. `next build`
+- `prisma/seed.ts` — usa upserts, seguro de ejecutar múltiples veces
+
+### Variables de entorno en Amplify Console
+| Variable | Valor |
+|----------|-------|
+| `DATABASE_URL` | `postgresql://user:pass@host:5432/vacaciones_pe` |
+| `WEBHOOK_SIGNING_SECRET` | Secret para Power Automate |
+| `NEXT_PUBLIC_APP_URL` | URL pública de la app |
+| `APP_TIMEZONE` | `America/Lima` |
+
+### Seed en producción
+El seed crea automáticamente:
+- `USER_ROLE_fmonge@woden.com.pe = ADMINISTRADOR`
+- `USER_PASSWORD_fmonge@woden.com.pe` (hash SHA-256)
+- Configuración del sistema (GERENTE_PAIS_EMAIL, ANALISTA_RRHH_EMAIL, etc.)
+
+## Variables de Entorno (local .env)
 
 ```bash
-DATABASE_URL=postgresql://...       # PostgreSQL en producción
+DATABASE_URL=file:./dev.db          # SQLite para desarrollo local
 WEBHOOK_SIGNING_SECRET=...          # Secret para endpoints Power Automate
 NEXT_PUBLIC_APP_URL=https://...     # URL pública de la app
 APP_TIMEZONE=America/Lima
