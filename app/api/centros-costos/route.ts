@@ -46,11 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { code, description } = body;
+    const { code, description, responsableName, responsableEmail } = body;
 
-    if (!code || !description) {
+    if (!code || !description || !responsableName || !responsableEmail) {
       return NextResponse.json(
-        { error: "Código y descripción son obligatorios" },
+        { error: "Código, descripción, nombre y email del responsable son obligatorios" },
         { status: 400 }
       );
     }
@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
       data: {
         code: trimmedCode,
         description: trimmedDesc,
+        responsableName: responsableName.trim(),
+        responsableEmail: responsableEmail.trim().toLowerCase(),
       },
     });
 
@@ -110,7 +112,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, code, description } = body;
+    const { id, code, description, responsableName, responsableEmail } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -130,7 +132,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const data: { code?: string; description?: string } = {};
+    const data: { code?: string; description?: string; responsableName?: string; responsableEmail?: string } = {};
     if (code !== undefined) {
       const trimmedCode = code.trim().toUpperCase();
       // Check for duplicate if code is changing
@@ -149,6 +151,12 @@ export async function PATCH(request: NextRequest) {
     }
     if (description !== undefined) {
       data.description = description.trim();
+    }
+    if (responsableName !== undefined) {
+      data.responsableName = responsableName.trim();
+    }
+    if (responsableEmail !== undefined) {
+      data.responsableEmail = responsableEmail.trim().toLowerCase();
     }
 
     const updated = await prisma.costCenter.update({

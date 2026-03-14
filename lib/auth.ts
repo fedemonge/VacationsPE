@@ -101,6 +101,7 @@ export function getRoleLabel(role: UserRole): string {
     SUPERVISOR: "Supervisor",
     GERENTE_PAIS: "Gerente General",
     RRHH: "Recursos Humanos",
+    OFICIAL_SEGURIDAD: "Oficial de Seguridad",
   };
   return labels[role];
 }

@@ -117,7 +117,8 @@ export type UserRole =
   | "ADMINISTRADOR"
   | "SUPERVISOR"
   | "GERENTE_PAIS"
-  | "RRHH";
+  | "RRHH"
+  | "OFICIAL_SEGURIDAD";
 
 export type AdjustmentType =
   | "CARGA_INICIAL"
@@ -224,6 +225,32 @@ export interface OverduePeriodDetail {
   monthsOverdue: number;
 }
 
+// FEC (Financiando el Crecimiento) types
+export type FecIdeaType = "AHORRO" | "USO";
+export type FecIdeaStatus = "ESTUDIAR" | "FIRME" | "IMPLEMENTADA" | "CANCELADA" | "SUSPENDIDA";
+export type FecRole = "ANALISTA_FINANCIERO" | "RESPONSABLE_AREA";
+
+export type FecCurrency = "USD" | "PEN" | "COP" | "BRL" | "EUR" | "MXN" | "CRC";
+
+export interface FecIdeaSummary {
+  id: string;
+  code: string;
+  title: string;
+  ideaType: FecIdeaType;
+  status: FecIdeaStatus;
+  areaName: string;
+  companyName: string;
+  companyCode: string;
+  projectCurrency: string;
+  leadName: string;
+  implementationDate: string | null;
+  revisedImplementationDate: string | null;
+  annualizedValue: number;
+  effectiveValue: number;
+  annualizedValueUsd: number;
+  effectiveValueUsd: number;
+}
+
 // Role → allowed routes mapping
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   USUARIO: [
@@ -231,6 +258,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/retorno-anticipado",
     "/vacaciones-dinero",
     "/organigrama",
+    "/fec",
+    "/fec/reportes",
+    "/cambiar-password",
   ],
   SUPERVISOR: [
     "/solicitudes",
@@ -242,6 +272,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/organigrama",
     "/solicitudes-personal",
     "/panel/personal",
+    "/fec",
+    "/fec/reportes",
+    "/cambiar-password",
   ],
   RRHH: [
     "/solicitudes",
@@ -254,6 +287,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/organigrama",
     "/solicitudes-personal",
     "/panel/personal",
+    "/planilla",
+    "/planilla/calcular",
+    "/planilla/asistencia",
+    "/planilla/batches",
+    "/planilla/excepciones",
+    "/fec",
+    "/fec/reportes",
+    "/cambiar-password",
   ],
   GERENTE_PAIS: [
     "/solicitudes",
@@ -267,6 +308,31 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/organigrama",
     "/solicitudes-personal",
     "/panel/personal",
+    "/planilla",
+    "/planilla/calcular",
+    "/planilla/asistencia",
+    "/planilla/batches",
+    "/planilla/excepciones",
+    "/fec",
+    "/fec/reportes",
+    "/cambiar-password",
+  ],
+  OFICIAL_SEGURIDAD: [
+    "/solicitudes",
+    "/retorno-anticipado",
+    "/vacaciones-dinero",
+    "/empleados",
+    "/panel/aprobaciones",
+    "/panel/saldos",
+    "/panel/reportes",
+    "/configuracion",
+    "/backups",
+    "/organigrama",
+    "/solicitudes-personal",
+    "/panel/personal",
+    "/fec",
+    "/fec/reportes",
+    "/cambiar-password",
   ],
   ADMINISTRADOR: [
     "/solicitudes",
@@ -281,5 +347,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/organigrama",
     "/solicitudes-personal",
     "/panel/personal",
+    "/planilla",
+    "/planilla/calcular",
+    "/planilla/asistencia",
+    "/planilla/batches",
+    "/planilla/excepciones",
+    "/fec",
+    "/fec/reportes",
+    "/fec/admin",
+    "/cambiar-password",
   ],
 };

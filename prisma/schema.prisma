@@ -22,6 +22,26 @@ model Employee {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Payroll fields
+  documentType        String    @default("DNI")
+  documentNumber      String?
+  birthDate           DateTime?
+  gender              String?
+  contractType        String    @default("INDEFINIDO")
+  contractStart       DateTime?
+  contractEnd         DateTime?
+  baseSalary          Float     @default(0)
+  pensionSystem       String    @default("AFP")
+  pensionProvider     String?
+  hasDependents       Boolean   @default(false)
+  has5taCatExemption  Boolean   @default(false)
+  bankName            String?
+  bankAccountNumber   String?
+  shiftId             String?
+  shift               WorkShift? @relation(fields: [shiftId], references: [id])
+  payrollCompanyId    String?
+  payrollCompany      FecCompany? @relation("EmployeePayrollCompany", fields: [payrollCompanyId], references: [id])
+
   vacationRequests    VacationRequest[]
   earlyReturnRequests EarlyReturnRequest[]
   cashOutRequests     VacationCashOutRequest[]
@@ -30,6 +50,13 @@ model Employee {
   balanceAdjustments  BalanceAdjustment[]
   orgPositions        OrgPosition[]
   staffRequestHires   StaffRequest[] @relation("StaffRequestHire")
+  payrollDetails      PayrollDetail[]
+  attendanceRecords   AttendanceRecord[]
+  fecRoleAssignments  FecRoleAssignment[]
+  fecIdeasLed         FecIdea[] @relation("FecIdeaLead")
+  fecCompanyAccess    FecUserCompanyAccess[]
+
+  @@index([shiftId])
 }
 
 model VacationRequest {
@@ -165,11 +192,13 @@ model BalanceAdjustment {
 }
 
 model CostCenter {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(uuid())
+  code             String   @unique
+  description      String
+  responsableName  String   @default("")
+  responsableEmail String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model BiometricRecord {
@@ -241,4 +270,382 @@ model StaffRequest {
   @@index([status])
   @@index([requestedByEmail])
   @@index([positionId])
+}
+
+// ── Payroll (Planilla) Models ──────────────────────────────────────
+
+model PayrollPeriod {
+  id            String    @id @default(uuid())
+  periodYear    Int
+  periodMonth   Int
+  periodType    String    @default("MENSUAL")
+  startDate     DateTime
+  endDate       DateTime
+  paymentDate   DateTime?
+  status        String    @default("ABIERTO")
+  calculatedAt  DateTime?
+  calculatedBy  String?
+  closedAt      DateTime?
+  closedBy      String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  details PayrollDetail[]
+  batches PayrollBatch[]
+
+  @@unique([periodYear, periodMonth, periodType])
+  @@index([status])
+}
+
+model PayrollDetail {
+  id                    String    @id @default(uuid())
+  periodId              String
+  employeeId            String
+  baseSalary            Float
+  daysWorked            Float     @default(30)
+  pensionSystem         String    @default("AFP")
+  pensionProvider       String    @default("PRIMA")
+  hasDependents         Boolean   @default(false)
+  totalIngresos         Float     @default(0)
+  totalDescuentos       Float     @default(0)
+  totalAportesEmpleador Float     @default(0)
+  netoAPagar            Float     @default(0)
+  status                String    @default("CALCULADO")
+  inputSnapshot         String?
+  batchId               String?
+  isExcluded            Boolean   @default(false)
+  exclusionReason       String?
+  excludedBy            String?
+  excludedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  period   PayrollPeriod       @relation(fields: [periodId], references: [id])
+  employee Employee            @relation(fields: [employeeId], references: [id])
+  batch    PayrollBatch?       @relation(fields: [batchId], references: [id])
+  lines    PayrollDetailLine[]
+
+  @@unique([periodId, employeeId])
+  @@index([periodId])
+  @@index([employeeId])
+  @@index([batchId])
+}
+
+model PayrollDetailLine {
+  id               String    @id @default(uuid())
+  detailId         String
+  conceptCode      String
+  conceptName      String
+  category         String
+  calcBase         Float?
+  calcRate         Float?
+  calcFormula      String?
+  amount           Float
+  autoAmount       Float?
+  isAdjusted       Boolean   @default(false)
+  adjustedBy       String?
+  adjustedAt       DateTime?
+  adjustmentReason String?
+  displayOrder     Int       @default(0)
+  createdAt        DateTime  @default(now())
+
+  detail PayrollDetail @relation(fields: [detailId], references: [id], onDelete: Cascade)
+
+  @@index([detailId])
+  @@index([conceptCode])
+}
+
+model PayrollLegalParam {
+  id          String    @id @default(uuid())
+  paramKey    String
+  paramValue  Float
+  validFrom   DateTime
+  validTo     DateTime?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([paramKey, validFrom])
+  @@index([paramKey])
+}
+
+model PayrollAdjustmentLog {
+  id             String   @id @default(uuid())
+  detailLineId   String
+  periodId       String
+  employeeId     String
+  employeeName   String
+  employeeCode   String
+  conceptCode    String
+  conceptName    String
+  autoAmount     Float
+  adjustedAmount Float
+  adjustedBy     String
+  adjustedAt     DateTime @default(now())
+  reason         String?
+
+  @@index([periodId])
+  @@index([employeeId])
+}
+
+// ── Payment Batches ──────────────────────────────────────────────────
+
+model PayrollBatch {
+  id                    String    @id @default(uuid())
+  periodId              String
+  batchNumber           Int
+  status                String    @default("BORRADOR")
+  totalEmployees        Int       @default(0)
+  totalNeto             Float     @default(0)
+  currentApprovalLevel  Int       @default(0)
+  notes                 String?
+  bbvaFileName          String?
+  bbvaFileGeneratedAt   DateTime?
+  bbvaFileGeneratedBy   String?
+  createdAt             DateTime  @default(now())
+  createdBy             String
+  updatedAt             DateTime  @updatedAt
+
+  period  PayrollPeriod   @relation(fields: [periodId], references: [id])
+  details PayrollDetail[]
+
+  @@index([periodId])
+  @@index([status])
+}
+
+// ── Work Shifts & Employee Payroll Master & Attendance ─────────────
+
+model WorkShift {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  name            String
+  startTime       String
+  endTime         String
+  breakMinutes    Int       @default(0)
+  effectiveHours  Float
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employees Employee[]
+}
+
+
+model AttendanceRecord {
+  id                String    @id @default(uuid())
+  employeeId        String
+  employeeCode      String
+  employeeName      String
+  date              DateTime
+  clockIn           DateTime?
+  clockOut          DateTime?
+  hoursWorked       Float     @default(0)
+  scheduledHours    Float     @default(8)
+  overtimeHours     Float     @default(0)
+  tardinessMinutes  Int       @default(0)
+  isAbsent          Boolean   @default(false)
+  isHoliday         Boolean   @default(false)
+  source            String    @default("BIOMETRICO")
+  periodYear        Int
+  periodMonth       Int
+  createdAt         DateTime  @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([periodYear, periodMonth])
+}
+
+// ── FEC (Financiando el Crecimiento) Models ──────────────────────────
+
+model FecCompany {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique  // e.g. "WODEN-PE", "WODEN-CO"
+  currency    String   @default("USD") // Default project currency (PEN, COP, BRL, USD, etc.)
+  country     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ideas            FecIdea[]
+  userAccess       FecUserCompanyAccess[]
+  payrollEmployees Employee[] @relation("EmployeePayrollCompany")
+}
+
+model FecUserCompanyAccess {
+  id          String   @id @default(uuid())
+  employeeId  String
+  companyId   String
+  createdAt   DateTime @default(now())
+
+  employee    Employee   @relation(fields: [employeeId], references: [id])
+  company     FecCompany @relation(fields: [companyId], references: [id])
+
+  @@unique([employeeId, companyId])
+  @@index([employeeId])
+  @@index([companyId])
+}
+
+model FecExchangeRate {
+  id          String   @id @default(uuid())
+  currency    String   // Local currency code (PEN, COP, BRL, etc.)
+  periodYear  Int
+  periodMonth Int
+  rateToUsd   Float    // 1 local currency = X USD (e.g. 1 PEN = 0.27 USD)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([currency, periodYear, periodMonth])
+  @@index([currency])
+}
+
+model FecArea {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ideas       FecIdea[]
+  roleAssignments FecRoleAssignment[]
+}
+
+model FecRoleAssignment {
+  id          String   @id @default(uuid())
+  employeeId  String
+  role        String   // ANALISTA_FINANCIERO or RESPONSABLE_AREA
+  areaId      String?  // null for ANALISTA_FINANCIERO (global), required for RESPONSABLE_AREA
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  area        FecArea? @relation(fields: [areaId], references: [id])
+
+  @@unique([employeeId, role, areaId])
+  @@index([employeeId])
+  @@index([role])
+}
+
+model FecIdea {
+  id                      String    @id @default(uuid())
+  code                    String    @unique  // Auto-generated: FEC-YYYY-NNN
+  title                   String
+  description             String
+  ideaType                String    // AHORRO or USO
+  status                  String    @default("ESTUDIAR") // ESTUDIAR, FIRME, IMPLEMENTADA, CANCELADA, SUSPENDIDA
+  areaId                  String
+  companyId               String    // Company this idea belongs to
+  leadEmployeeId          String    // Lider/Responsable
+  projectCurrency         String    @default("USD") // Project currency (PEN, COP, BRL, USD, etc.)
+
+  // Financial classification
+  plLine                  String?   // Linea del P&G
+  bsLine                  String?   // Linea del Balance
+  cfLine                  String?   // Linea del Flujo de Caja
+
+  // Dates
+  implementationDate      DateTime?  // Fecha de implementacion (locked after save, only analyst can change)
+  revisedImplementationDate DateTime? // Fecha revisada (editable by users)
+
+  // 12-month values in Project Currency (from implementation date)
+  month1Value             Float     @default(0)
+  month2Value             Float     @default(0)
+  month3Value             Float     @default(0)
+  month4Value             Float     @default(0)
+  month5Value             Float     @default(0)
+  month6Value             Float     @default(0)
+  month7Value             Float     @default(0)
+  month8Value             Float     @default(0)
+  month9Value             Float     @default(0)
+  month10Value            Float     @default(0)
+  month11Value            Float     @default(0)
+  month12Value            Float     @default(0)
+
+  // 12-month values in USD
+  month1Usd               Float     @default(0)
+  month2Usd               Float     @default(0)
+  month3Usd               Float     @default(0)
+  month4Usd               Float     @default(0)
+  month5Usd               Float     @default(0)
+  month6Usd               Float     @default(0)
+  month7Usd               Float     @default(0)
+  month8Usd               Float     @default(0)
+  month9Usd               Float     @default(0)
+  month10Usd              Float     @default(0)
+  month11Usd              Float     @default(0)
+  month12Usd              Float     @default(0)
+
+  // Calculated fields - Project Currency
+  annualizedValue         Float     @default(0) // avg monthly * 12
+  effectiveValue          Float     @default(0) // sum of 12 months
+
+  // Calculated fields - USD
+  annualizedValueUsd      Float     @default(0)
+  effectiveValueUsd       Float     @default(0)
+
+  // Approval tracking
+  analystApprovalRequired Boolean   @default(false)
+  analystApprovedBy       String?
+  analystApprovedAt       DateTime?
+
+  // Audit
+  createdByEmail          String
+  createdByName           String
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  cancelledAt             DateTime?
+  cancelReason            String?
+  suspendedAt             DateTime?
+  suspendReason           String?
+
+  area                    FecArea    @relation(fields: [areaId], references: [id])
+  company                 FecCompany @relation(fields: [companyId], references: [id])
+  leadEmployee            Employee   @relation("FecIdeaLead", fields: [leadEmployeeId], references: [id])
+  statusHistory           FecStatusHistory[]
+
+  @@index([status])
+  @@index([areaId])
+  @@index([companyId])
+  @@index([leadEmployeeId])
+  @@index([implementationDate])
+}
+
+model FecStatusHistory {
+  id            String   @id @default(uuid())
+  ideaId        String
+  fromStatus    String
+  toStatus      String
+  changedByEmail String
+  changedByName  String
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  idea          FecIdea  @relation(fields: [ideaId], references: [id])
+
+  @@index([ideaId])
+}
+
+model FecFinancialLine {
+  id          String   @id @default(uuid())
+  type        String   // "PL" (P&G), "BS" (Balance), "CF" (Cash Flow)
+  name        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([type, name])
+  @@index([type])
+}
+
+model UserMenuGrant {
+  id          String   @id @default(uuid())
+  userEmail   String
+  menuPath    String
+  grantedBy   String
+  createdAt   DateTime @default(now())
+
+  @@unique([userEmail, menuPath])
+  @@index([userEmail])
 }

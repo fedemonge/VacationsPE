@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
 
   const employees = await prisma.employee.findMany({
     where,
+    include: { shift: true },
     orderBy: { fullName: "asc" },
   });
 
@@ -38,6 +39,22 @@ export async function POST(request: NextRequest) {
       supervisorName,
       supervisorEmail,
       position,
+      // Payroll fields
+      documentType,
+      documentNumber,
+      birthDate,
+      gender,
+      contractType,
+      contractStart,
+      contractEnd,
+      baseSalary,
+      pensionSystem,
+      pensionProvider,
+      hasDependents,
+      has5taCatExemption,
+      bankName,
+      bankAccountNumber,
+      shiftId,
     } = body;
 
     if (!employeeCode || !fullName || !email || !hireDate || !costCenter || !supervisorName || !supervisorEmail || !position) {
@@ -74,6 +91,22 @@ export async function POST(request: NextRequest) {
         supervisorName: finalSupervisorName,
         supervisorEmail: finalSupervisorEmail,
         position,
+        // Payroll fields
+        ...(documentType && { documentType }),
+        ...(documentNumber && { documentNumber }),
+        ...(birthDate && { birthDate: new Date(birthDate) }),
+        ...(gender && { gender }),
+        ...(contractType && { contractType }),
+        ...(contractStart && { contractStart: new Date(contractStart) }),
+        ...(contractEnd && { contractEnd: new Date(contractEnd) }),
+        ...(baseSalary !== undefined && { baseSalary: parseFloat(baseSalary) || 0 }),
+        ...(pensionSystem && { pensionSystem }),
+        ...(pensionProvider !== undefined && { pensionProvider: pensionProvider || null }),
+        ...(hasDependents !== undefined && { hasDependents }),
+        ...(has5taCatExemption !== undefined && { has5taCatExemption }),
+        ...(bankName !== undefined && { bankName: bankName || null }),
+        ...(bankAccountNumber !== undefined && { bankAccountNumber: bankAccountNumber || null }),
+        ...(shiftId !== undefined && { shiftId: shiftId || null }),
       },
     });
 
