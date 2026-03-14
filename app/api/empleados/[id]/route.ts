@@ -45,6 +45,22 @@ export async function PATCH(
       supervisorName,
       supervisorEmail,
       position,
+      // Payroll fields
+      documentType,
+      documentNumber,
+      birthDate,
+      gender,
+      contractType,
+      contractStart,
+      contractEnd,
+      baseSalary,
+      pensionSystem,
+      pensionProvider,
+      hasDependents,
+      has5taCatExemption,
+      bankName,
+      bankAccountNumber,
+      shiftId,
     } = body;
 
     const data: Record<string, unknown> = {};
@@ -59,6 +75,22 @@ export async function PATCH(
     if (supervisorName !== undefined) data.supervisorName = supervisorName;
     if (supervisorEmail !== undefined) data.supervisorEmail = supervisorEmail;
     if (position !== undefined) data.position = position;
+    // Payroll fields
+    if (documentType !== undefined) data.documentType = documentType;
+    if (documentNumber !== undefined) data.documentNumber = documentNumber || null;
+    if (birthDate !== undefined) data.birthDate = birthDate ? new Date(birthDate) : null;
+    if (gender !== undefined) data.gender = gender || null;
+    if (contractType !== undefined) data.contractType = contractType;
+    if (contractStart !== undefined) data.contractStart = contractStart ? new Date(contractStart) : null;
+    if (contractEnd !== undefined) data.contractEnd = contractEnd ? new Date(contractEnd) : null;
+    if (baseSalary !== undefined) data.baseSalary = parseFloat(baseSalary) || 0;
+    if (pensionSystem !== undefined) data.pensionSystem = pensionSystem;
+    if (pensionProvider !== undefined) data.pensionProvider = pensionProvider || null;
+    if (hasDependents !== undefined) data.hasDependents = hasDependents;
+    if (has5taCatExemption !== undefined) data.has5taCatExemption = has5taCatExemption;
+    if (bankName !== undefined) data.bankName = bankName || null;
+    if (bankAccountNumber !== undefined) data.bankAccountNumber = bankAccountNumber || null;
+    if (shiftId !== undefined) data.shiftId = shiftId || null;
 
     // Enforce self-supervisor for Gerente General / Country Manager
     const effectivePosition = (position ?? (await prisma.employee.findUnique({ where: { id: params.id }, select: { position: true } }))?.position) as string | undefined;

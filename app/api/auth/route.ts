@@ -7,6 +7,7 @@ import {
   userRequiresPassword,
   userMustChangePassword,
 } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "vacaciones_session";
 
@@ -17,10 +18,16 @@ export async function GET() {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
   const mustChange = await userMustChangePassword(session.email);
+  const grants = await prisma.userMenuGrant.findMany({
+    where: { userEmail: session.email },
+    select: { menuPath: true },
+  });
+  const menuGrants = grants.map((g: { menuPath: string }) => g.menuPath);
   return NextResponse.json({
     authenticated: true,
     ...session,
     mustChangePassword: mustChange,
+    menuGrants,
   });
 }
 

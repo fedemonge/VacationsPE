@@ -19,7 +19,7 @@ export default function SesionCerradaPage() {
         </h1>
         <p className="text-gray-500 mb-8">
           Su sesión se ha cerrado correctamente. Gracias por utilizar el sistema
-          de gestión de vacaciones.
+          de gestión de capital humano.
         </p>
         <Link href="/" className="btn-primary inline-block">
           Iniciar Sesión Nuevamente

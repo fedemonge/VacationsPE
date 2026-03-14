@@ -10,6 +10,7 @@ interface AuthState {
   role: UserRole;
   loading: boolean;
   mustChangePassword: boolean;
+  menuGrants: string[];
 }
 
 interface LoginResult {
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   role: "USUARIO",
   loading: true,
   mustChangePassword: false,
+  menuGrants: [],
   login: async () => ({ success: false }),
   logout: async () => {},
   hasAccess: () => false,
@@ -52,6 +54,7 @@ export default function AuthProvider({
     role: "USUARIO",
     loading: true,
     mustChangePassword: false,
+    menuGrants: [],
   });
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function AuthProvider({
             role: data.role,
             loading: false,
             mustChangePassword: data.mustChangePassword || false,
+            menuGrants: data.menuGrants || [],
           });
         } else {
           setState((prev) => ({ ...prev, loading: false }));
@@ -91,6 +95,7 @@ export default function AuthProvider({
             role: data.role,
             loading: false,
             mustChangePassword: data.mustChangePassword || false,
+            menuGrants: data.menuGrants || [],
           });
           return { success: true };
         }
@@ -114,6 +119,7 @@ export default function AuthProvider({
       role: "USUARIO",
       loading: false,
       mustChangePassword: false,
+      menuGrants: [],
     });
     window.location.href = "/sesion-cerrada";
   }, []);
@@ -125,10 +131,11 @@ export default function AuthProvider({
   const hasAccess = useCallback(
     (path: string): boolean => {
       if (!state.authenticated) return false;
-      const allowed = ROLE_PERMISSIONS[state.role];
-      return allowed.some((p) => path.startsWith(p));
+      const allowed = ROLE_PERMISSIONS[state.role] || [];
+      if (allowed.some((p) => path.startsWith(p))) return true;
+      return state.menuGrants.some((p) => path.startsWith(p));
     },
-    [state.authenticated, state.role]
+    [state.authenticated, state.role, state.menuGrants]
   );
 
   return (

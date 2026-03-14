@@ -19,6 +19,8 @@ interface CostCenterEntry {
   id: string;
   code: string;
   description: string;
+  responsableName: string;
+  responsableEmail: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -26,11 +28,34 @@ const ROLE_LABELS: Record<string, string> = {
   SUPERVISOR: "Supervisor",
   GERENTE_PAIS: "Gerente General",
   RRHH: "Recursos Humanos",
+  OFICIAL_SEGURIDAD: "Oficial de Seguridad",
 };
+
+// Keys that belong to the Vacaciones tab (editable inline)
+const VACACIONES_KEYS = [
+  "GERENTE_PAIS_EMAIL",
+  "GERENTE_PAIS_NOMBRE",
+  "ANALISTA_RRHH_EMAIL",
+  "ANALISTA_RRHH_NOMBRE",
+  "POWER_AUTOMATE_WEBHOOK",
+  "DIAS_ALERTA_RETRASO",
+  "DIAS_CANCELACION_AUTO",
+];
+
+// Keys that belong to the Planilla Peru tab (managed via payrollConfig form)
+const PLANILLA_KEYS = [
+  "TOLERANCIA_TARDANZA_MINUTOS",
+  "JEFE_FINANCIERO_EMAIL",
+  "JEFE_FINANCIERO_NOMBRE",
+  "BBVA_RUC_EMPRESA",
+  "BBVA_RAZON_SOCIAL",
+];
 
 export default function ConfiguracionPage() {
   const { role: currentRole } = useAuth();
   const isAdmin = currentRole === "ADMINISTRADOR";
+
+  const [tab, setTab] = useState<"vacaciones" | "planilla" | "global">("vacaciones");
 
   // System config state
   const [configs, setConfigs] = useState<Config[]>([]);
@@ -51,25 +76,69 @@ export default function ConfiguracionPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [resettingPassword, setResettingPassword] = useState<string | null>(null);
 
+  // Payroll config state
+  const [payrollConfig, setPayrollConfig] = useState<Record<string, string>>({
+    TOLERANCIA_TARDANZA_MINUTOS: "",
+    JEFE_FINANCIERO_EMAIL: "",
+    JEFE_FINANCIERO_NOMBRE: "",
+    BBVA_RUC_EMPRESA: "",
+    BBVA_RAZON_SOCIAL: "",
+  });
+  const [savingPayroll, setSavingPayroll] = useState(false);
+  const [payrollMessage, setPayrollMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Vacaciones inline config state
+  const [vacConfig, setVacConfig] = useState<Record<string, string>>({
+    GERENTE_PAIS_EMAIL: "",
+    GERENTE_PAIS_NOMBRE: "",
+    ANALISTA_RRHH_EMAIL: "",
+    ANALISTA_RRHH_NOMBRE: "",
+    POWER_AUTOMATE_WEBHOOK: "",
+    DIAS_ALERTA_RETRASO: "",
+    DIAS_CANCELACION_AUTO: "",
+  });
+  const [savingVac, setSavingVac] = useState(false);
+  const [vacMessage, setVacMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Cost center management state
   const [costCenters, setCostCenters] = useState<CostCenterEntry[]>([]);
   const [ccLoading, setCcLoading] = useState(true);
   const [newCcCode, setNewCcCode] = useState("");
   const [newCcDesc, setNewCcDesc] = useState("");
+  const [newCcResponsableName, setNewCcResponsableName] = useState("");
+  const [newCcResponsableEmail, setNewCcResponsableEmail] = useState("");
   const [ccMessage, setCcMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
   const [savingCc, setSavingCc] = useState(false);
+  const [importingCc, setImportingCc] = useState(false);
   const [editingCcId, setEditingCcId] = useState<string | null>(null);
   const [editCcCode, setEditCcCode] = useState("");
   const [editCcDesc, setEditCcDesc] = useState("");
+  const [editCcResponsableName, setEditCcResponsableName] = useState("");
+  const [editCcResponsableEmail, setEditCcResponsableEmail] = useState("");
 
   useEffect(() => {
     loadConfigs();
     loadCostCenters();
     if (isAdmin) loadUsers();
   }, [isAdmin]);
+
+  // Load payroll and vacaciones config values from configs once loaded
+  useEffect(() => {
+    if (configs.length > 0) {
+      const pConfig: Record<string, string> = { ...payrollConfig };
+      const vConfig: Record<string, string> = { ...vacConfig };
+      for (const c of configs) {
+        if (c.key in pConfig) pConfig[c.key] = c.value;
+        if (c.key in vConfig) vConfig[c.key] = c.value;
+      }
+      setPayrollConfig(pConfig);
+      setVacConfig(vConfig);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configs]);
 
   // --- System Configuration ---
   async function loadConfigs() {
@@ -213,6 +282,50 @@ export default function ConfiguracionPage() {
     }
   }
 
+  // --- Payroll Configuration ---
+  async function handleSavePayrollConfig() {
+    setSavingPayroll(true);
+    setPayrollMessage(null);
+    try {
+      for (const [key, value] of Object.entries(payrollConfig)) {
+        await fetch("/api/configuracion", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+      }
+      setPayrollMessage({ type: "success", text: "Configuración de planilla guardada." });
+      loadConfigs();
+      setTimeout(() => setPayrollMessage(null), 3000);
+    } catch {
+      setPayrollMessage({ type: "error", text: "Error al guardar configuración." });
+    } finally {
+      setSavingPayroll(false);
+    }
+  }
+
+  // --- Vacaciones Configuration ---
+  async function handleSaveVacConfig() {
+    setSavingVac(true);
+    setVacMessage(null);
+    try {
+      for (const [key, value] of Object.entries(vacConfig)) {
+        await fetch("/api/configuracion", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+      }
+      setVacMessage({ type: "success", text: "Configuración de vacaciones guardada." });
+      loadConfigs();
+      setTimeout(() => setVacMessage(null), 3000);
+    } catch {
+      setVacMessage({ type: "error", text: "Error al guardar configuración." });
+    } finally {
+      setSavingVac(false);
+    }
+  }
+
   // --- Cost Center Management ---
   async function loadCostCenters() {
     setCcLoading(true);
@@ -229,7 +342,7 @@ export default function ConfiguracionPage() {
 
   async function handleAddCostCenter(e: React.FormEvent) {
     e.preventDefault();
-    if (!newCcCode.trim() || !newCcDesc.trim()) return;
+    if (!newCcCode.trim() || !newCcDesc.trim() || !newCcResponsableName.trim() || !newCcResponsableEmail.trim()) return;
 
     setSavingCc(true);
     setCcMessage(null);
@@ -238,7 +351,12 @@ export default function ConfiguracionPage() {
       const res = await fetch("/api/centros-costos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: newCcCode.trim(), description: newCcDesc.trim() }),
+        body: JSON.stringify({
+          code: newCcCode.trim(),
+          description: newCcDesc.trim(),
+          responsableName: newCcResponsableName.trim(),
+          responsableEmail: newCcResponsableEmail.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -249,6 +367,8 @@ export default function ConfiguracionPage() {
         setCcMessage({ type: "success", text: `Centro de costos "${data.code}" creado.` });
         setNewCcCode("");
         setNewCcDesc("");
+        setNewCcResponsableName("");
+        setNewCcResponsableEmail("");
         loadCostCenters();
       }
     } catch {
@@ -266,7 +386,13 @@ export default function ConfiguracionPage() {
       const res = await fetch("/api/centros-costos", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, code: editCcCode, description: editCcDesc }),
+        body: JSON.stringify({
+          id,
+          code: editCcCode,
+          description: editCcDesc,
+          responsableName: editCcResponsableName,
+          responsableEmail: editCcResponsableEmail,
+        }),
       });
 
       const data = await res.json();
@@ -312,6 +438,57 @@ export default function ConfiguracionPage() {
     }
   }
 
+  async function handleImportCostCenters(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setImportingCc(true);
+    setCcMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/centros-costos/importar", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setCcMessage({ type: "error", text: data.error });
+      } else {
+        const parts = [];
+        if (data.imported > 0) parts.push(`${data.imported} nuevos`);
+        if (data.updated > 0) parts.push(`${data.updated} actualizados`);
+        if (data.errors > 0) parts.push(`${data.errors} errores`);
+        setCcMessage({
+          type: data.errors > 0 && data.imported === 0 && data.updated === 0 ? "error" : "success",
+          text: `Importación completada: ${parts.join(", ")}.${data.errorDetails?.length ? " " + data.errorDetails.slice(0, 3).join("; ") : ""}`,
+        });
+        loadCostCenters();
+      }
+    } catch {
+      setCcMessage({ type: "error", text: "Error de conexión" });
+    } finally {
+      setImportingCc(false);
+    }
+  }
+
+  // Configs for the Global tab (exclude vacaciones and planilla keys)
+  const globalConfigs = configs.filter(
+    (c) => !VACACIONES_KEYS.includes(c.key) && !PLANILLA_KEYS.includes(c.key)
+  );
+
+  const tabClass = (t: string) =>
+    `px-4 py-2 text-sm transition-colors border-b-2 ${
+      tab === t
+        ? "border-woden-primary text-woden-primary font-semibold"
+        : "border-transparent text-gray-500 hover:text-gray-700"
+    }`;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -321,129 +498,692 @@ export default function ConfiguracionPage() {
         Parámetros configurables del sistema y gestión de usuarios.
       </p>
 
-      {/* ===== User Role Management (Admin only) ===== */}
-      {isAdmin && (
-        <div className="mb-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">
-            Gestión de Usuarios y Roles
-          </h2>
+      {/* Tab bar */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button className={tabClass("vacaciones")} onClick={() => setTab("vacaciones")}>
+          Vacaciones
+        </button>
+        <button className={tabClass("planilla")} onClick={() => setTab("planilla")}>
+          Planilla Peru
+        </button>
+        <button className={tabClass("global")} onClick={() => setTab("global")}>
+          Global
+        </button>
+      </div>
 
-          {userMessage && (
+      {/* ===== TAB: Vacaciones ===== */}
+      {tab === "vacaciones" && (
+        <div>
+          {vacMessage && (
             <div
               className={`mb-4 p-3 rounded-sm text-sm ${
-                userMessage.type === "success"
+                vacMessage.type === "success"
                   ? "bg-green-50 border border-green-200 text-green-800"
                   : "bg-red-50 border border-red-200 text-red-800"
               }`}
             >
-              {userMessage.text}
+              {vacMessage.text}
             </div>
           )}
 
-          {/* Assign Role Form */}
-          <form
-            onSubmit={handleAssignRole}
-            className="card border-l-4 border-l-woden-primary mb-4"
-          >
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Asignar Rol a Usuario
-            </h3>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
+          <div className="card border-l-4 border-l-woden-primary mb-6">
+            {/* Gerente País */}
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Gerente de País</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="gerente@empresa.com.pe"
+                    value={vacConfig.GERENTE_PAIS_EMAIL}
+                    onChange={(e) => setVacConfig({ ...vacConfig, GERENTE_PAIS_EMAIL: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Nombre del Gerente de País"
+                    value={vacConfig.GERENTE_PAIS_NOMBRE}
+                    onChange={(e) => setVacConfig({ ...vacConfig, GERENTE_PAIS_NOMBRE: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Analista RRHH */}
+            <div className="mb-5 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Analista de RRHH</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="analista.rrhh@empresa.com.pe"
+                    value={vacConfig.ANALISTA_RRHH_EMAIL}
+                    onChange={(e) => setVacConfig({ ...vacConfig, ANALISTA_RRHH_EMAIL: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Nombre del Analista RRHH"
+                    value={vacConfig.ANALISTA_RRHH_NOMBRE}
+                    onChange={(e) => setVacConfig({ ...vacConfig, ANALISTA_RRHH_NOMBRE: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Power Automate */}
+            <div className="mb-5 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Integración Power Automate</h3>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Webhook URL</label>
                 <input
-                  type="email"
+                  type="text"
                   className="input-field"
-                  placeholder="correo@empresa.com.pe"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  required
+                  placeholder="https://prod-xx.westus.logic.azure.com/..."
+                  value={vacConfig.POWER_AUTOMATE_WEBHOOK}
+                  onChange={(e) => setVacConfig({ ...vacConfig, POWER_AUTOMATE_WEBHOOK: e.target.value })}
                 />
               </div>
-              <div className="sm:w-48">
-                <select
-                  className="input-field"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                >
-                  <option value="SUPERVISOR">Supervisor</option>
-                  <option value="RRHH">Recursos Humanos</option>
-                  <option value="GERENTE_PAIS">Gerente General</option>
-                  <option value="ADMINISTRADOR">Administrador</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="btn-primary whitespace-nowrap"
-                disabled={savingUser || !newEmail.trim()}
-              >
-                {savingUser ? "Asignando..." : "Asignar Rol"}
-              </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              La contraseña inicial del usuario será <span className="font-mono font-medium">Woden123</span>.
-              Si el usuario ya existe, solo se actualizará su rol.
-            </p>
-          </form>
 
-          {/* Users Table */}
+            {/* Alertas */}
+            <div className="mb-5 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Alertas y Plazos</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Días de Alerta por Retraso</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    placeholder="ej: 30"
+                    value={vacConfig.DIAS_ALERTA_RETRASO}
+                    onChange={(e) => setVacConfig({ ...vacConfig, DIAS_ALERTA_RETRASO: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Días para Cancelación Automática</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input-field"
+                    placeholder="ej: 7"
+                    value={vacConfig.DIAS_CANCELACION_AUTO}
+                    onChange={(e) => setVacConfig({ ...vacConfig, DIAS_CANCELACION_AUTO: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={handleSaveVacConfig}
+              disabled={savingVac}
+            >
+              {savingVac ? "Guardando..." : "Guardar Configuración de Vacaciones"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== TAB: Planilla Peru ===== */}
+      {tab === "planilla" && (
+        <div>
+          {payrollMessage && (
+            <div
+              className={`mb-4 p-3 rounded-sm text-sm ${
+                payrollMessage.type === "success"
+                  ? "bg-green-50 border border-green-200 text-green-800"
+                  : "bg-red-50 border border-red-200 text-red-800"
+              }`}
+            >
+              {payrollMessage.text}
+            </div>
+          )}
+
+          <div className="card border-l-4 border-l-woden-primary mb-8">
+            {/* Tardiness tolerance */}
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Asistencia</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Tolerancia de Tardanza (minutos)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    className="input-field"
+                    value={payrollConfig.TOLERANCIA_TARDANZA_MINUTOS}
+                    onChange={(e) => setPayrollConfig({ ...payrollConfig, TOLERANCIA_TARDANZA_MINUTOS: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Jefe Financiero */}
+            <div className="mb-5 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Jefe Financiero (Aprobador Nivel 2 de Pago)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="jefe.financiero@empresa.com.pe"
+                    value={payrollConfig.JEFE_FINANCIERO_EMAIL}
+                    onChange={(e) => setPayrollConfig({ ...payrollConfig, JEFE_FINANCIERO_EMAIL: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Nombre del Jefe Financiero"
+                    value={payrollConfig.JEFE_FINANCIERO_NOMBRE}
+                    onChange={(e) => setPayrollConfig({ ...payrollConfig, JEFE_FINANCIERO_NOMBRE: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* BBVA Config */}
+            <div className="mb-5 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Archivo BBVA (Pago de Haberes)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">RUC de la Empresa</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="20XXXXXXXXX"
+                    maxLength={11}
+                    value={payrollConfig.BBVA_RUC_EMPRESA}
+                    onChange={(e) => setPayrollConfig({ ...payrollConfig, BBVA_RUC_EMPRESA: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Razón Social</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Nombre de la empresa"
+                    value={payrollConfig.BBVA_RAZON_SOCIAL}
+                    onChange={(e) => setPayrollConfig({ ...payrollConfig, BBVA_RAZON_SOCIAL: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={handleSavePayrollConfig}
+              disabled={savingPayroll}
+            >
+              {savingPayroll ? "Guardando..." : "Guardar Configuración de Planilla"}
+            </button>
+          </div>
+
+          {/* ===== Cost Center Management ===== */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">
+                Centros de Costos
+              </h2>
+              <label className={`btn-primary text-sm cursor-pointer ${importingCc ? "opacity-50 pointer-events-none" : ""}`}>
+                {importingCc ? "Importando..." : "Importar Archivo"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".csv,.txt,.xlsx,.xls"
+                  onChange={handleImportCostCenters}
+                  disabled={importingCc}
+                />
+              </label>
+            </div>
+
+            {ccMessage && (
+              <div
+                className={`mb-4 p-3 rounded-sm text-sm ${
+                  ccMessage.type === "success"
+                    ? "bg-green-50 border border-green-200 text-green-800"
+                    : "bg-red-50 border border-red-200 text-red-800"
+                }`}
+              >
+                {ccMessage.text}
+              </div>
+            )}
+
+            {/* Add Cost Center Form */}
+            <form
+              onSubmit={handleAddCostCenter}
+              className="card border-l-4 border-l-woden-primary mb-4"
+            >
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                Agregar Centro de Costos
+              </h3>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="sm:w-40">
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Código (ej: CC-100)"
+                      value={newCcCode}
+                      onChange={(e) => setNewCcCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Descripción (ej: Tecnología, Finanzas, Operaciones)"
+                      value={newCcDesc}
+                      onChange={(e) => setNewCcDesc(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Nombre del responsable"
+                      value={newCcResponsableName}
+                      onChange={(e) => setNewCcResponsableName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="email"
+                      className="input-field"
+                      placeholder="Email del responsable"
+                      value={newCcResponsableEmail}
+                      onChange={(e) => setNewCcResponsableEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn-primary whitespace-nowrap"
+                    disabled={savingCc || !newCcCode.trim() || !newCcDesc.trim() || !newCcResponsableName.trim() || !newCcResponsableEmail.trim()}
+                  >
+                    {savingCc ? "Guardando..." : "Agregar"}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Cost Centers Table */}
+            <div className="card overflow-x-auto p-0">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-header w-32">Código</th>
+                    <th className="table-header">Descripción</th>
+                    <th className="table-header">Responsable</th>
+                    <th className="table-header w-48">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ccLoading ? (
+                    <tr>
+                      <td colSpan={4} className="table-cell text-center text-gray-400">
+                        Cargando...
+                      </td>
+                    </tr>
+                  ) : costCenters.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="table-cell text-center text-gray-400">
+                        No hay centros de costos registrados
+                      </td>
+                    </tr>
+                  ) : (
+                    costCenters.map((cc) => (
+                      <tr key={cc.id} className="hover:bg-woden-primary-lighter">
+                        <td className="table-cell font-mono text-sm">
+                          {editingCcId === cc.id ? (
+                            <input
+                              type="text"
+                              className="input-field text-sm"
+                              value={editCcCode}
+                              onChange={(e) => setEditCcCode(e.target.value)}
+                            />
+                          ) : (
+                            cc.code
+                          )}
+                        </td>
+                        <td className="table-cell text-sm">
+                          {editingCcId === cc.id ? (
+                            <input
+                              type="text"
+                              className="input-field text-sm"
+                              value={editCcDesc}
+                              onChange={(e) => setEditCcDesc(e.target.value)}
+                              autoFocus
+                            />
+                          ) : (
+                            cc.description
+                          )}
+                        </td>
+                        <td className="table-cell text-sm">
+                          {editingCcId === cc.id ? (
+                            <div className="flex flex-col gap-1">
+                              <input
+                                type="text"
+                                className="input-field text-sm"
+                                placeholder="Nombre"
+                                value={editCcResponsableName}
+                                onChange={(e) => setEditCcResponsableName(e.target.value)}
+                              />
+                              <input
+                                type="email"
+                                className="input-field text-sm"
+                                placeholder="Email"
+                                value={editCcResponsableEmail}
+                                onChange={(e) => setEditCcResponsableEmail(e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="font-medium">{cc.responsableName || "—"}</div>
+                              {cc.responsableEmail && (
+                                <div className="text-xs text-gray-500">{cc.responsableEmail}</div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="table-cell">
+                          {editingCcId === cc.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                className="text-xs text-green-600 hover:underline"
+                                onClick={() => handleSaveCostCenter(cc.id)}
+                                disabled={savingCc}
+                              >
+                                {savingCc ? "Guardando..." : "Guardar"}
+                              </button>
+                              <button
+                                className="text-xs text-gray-400 hover:underline"
+                                onClick={() => setEditingCcId(null)}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button
+                                className="text-xs text-woden-primary hover:underline"
+                                onClick={() => {
+                                  setEditingCcId(cc.id);
+                                  setEditCcCode(cc.code);
+                                  setEditCcDesc(cc.description);
+                                  setEditCcResponsableName(cc.responsableName || "");
+                                  setEditCcResponsableEmail(cc.responsableEmail || "");
+                                }}
+                              >
+                                Editar
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                                  onClick={() => handleDeleteCostCenter(cc)}
+                                >
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== TAB: Global ===== */}
+      {tab === "global" && (
+        <div>
+          {/* User Role Management (Admin only) */}
+          {isAdmin && (
+            <div className="mb-8">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                Gestión de Usuarios y Roles
+              </h2>
+
+              {userMessage && (
+                <div
+                  className={`mb-4 p-3 rounded-sm text-sm ${
+                    userMessage.type === "success"
+                      ? "bg-green-50 border border-green-200 text-green-800"
+                      : "bg-red-50 border border-red-200 text-red-800"
+                  }`}
+                >
+                  {userMessage.text}
+                </div>
+              )}
+
+              {/* Assign Role Form */}
+              <form
+                onSubmit={handleAssignRole}
+                className="card border-l-4 border-l-woden-primary mb-4"
+              >
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  Asignar Rol a Usuario
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="email"
+                      className="input-field"
+                      placeholder="correo@empresa.com.pe"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="sm:w-48">
+                    <select
+                      className="input-field"
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
+                    >
+                      <option value="SUPERVISOR">Supervisor</option>
+                      <option value="RRHH">Recursos Humanos</option>
+                      <option value="GERENTE_PAIS">Gerente General</option>
+                      <option value="OFICIAL_SEGURIDAD">Oficial de Seguridad</option>
+                      <option value="ADMINISTRADOR">Administrador</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn-primary whitespace-nowrap"
+                    disabled={savingUser || !newEmail.trim()}
+                  >
+                    {savingUser ? "Asignando..." : "Asignar Rol"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  La contraseña inicial del usuario será <span className="font-mono font-medium">Woden123</span>.
+                  Si el usuario ya existe, solo se actualizará su rol.
+                </p>
+              </form>
+
+              {/* Users Table */}
+              <div className="card overflow-x-auto p-0">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="table-header">Correo Electrónico</th>
+                      <th className="table-header">Rol</th>
+                      <th className="table-header w-48">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usersLoading ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="table-cell text-center text-gray-400"
+                        >
+                          Cargando...
+                        </td>
+                      </tr>
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="table-cell text-center text-gray-400"
+                        >
+                          No hay usuarios con rol asignado
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((user) => (
+                        <tr
+                          key={user.email}
+                          className="hover:bg-woden-primary-lighter"
+                        >
+                          <td className="table-cell text-sm">{user.email}</td>
+                          <td className="table-cell">
+                            <span className="text-xs px-2 py-0.5 rounded bg-woden-primary-light text-woden-primary font-medium">
+                              {ROLE_LABELS[user.role] || user.role}
+                            </span>
+                          </td>
+                          <td className="table-cell">
+                            <div className="flex gap-2">
+                              <button
+                                className="text-xs text-woden-primary hover:underline"
+                                onClick={() => handleResetPassword(user.email)}
+                                disabled={resettingPassword === user.email}
+                              >
+                                {resettingPassword === user.email
+                                  ? "Restableciendo..."
+                                  : "Restablecer Clave"}
+                              </button>
+                              <button
+                                className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                                onClick={() => handleRemoveRole(user.email)}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* System Configuration Table (remaining keys) */}
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            Parámetros del Sistema
+          </h2>
+
+          {success && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-sm text-green-800 text-sm">
+              {success}
+            </div>
+          )}
+
           <div className="card overflow-x-auto p-0">
             <table className="w-full">
               <thead>
                 <tr>
-                  <th className="table-header">Correo Electrónico</th>
-                  <th className="table-header">Rol</th>
-                  <th className="table-header w-48">Acciones</th>
+                  <th className="table-header">Clave</th>
+                  <th className="table-header">Valor</th>
+                  <th className="table-header">Descripción</th>
+                  <th className="table-header w-24">Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {usersLoading ? (
+                {loading ? (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={4}
                       className="table-cell text-center text-gray-400"
                     >
                       Cargando...
                     </td>
                   </tr>
-                ) : users.length === 0 ? (
+                ) : globalConfigs.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={3}
-                      className="table-cell text-center text-gray-400"
-                    >
-                      No hay usuarios con rol asignado
+                    <td colSpan={4} className="table-cell text-center text-gray-400">
+                      No hay parámetros adicionales
                     </td>
                   </tr>
                 ) : (
-                  users.map((user) => (
+                  globalConfigs.map((config) => (
                     <tr
-                      key={user.email}
+                      key={config.key}
                       className="hover:bg-woden-primary-lighter"
                     >
-                      <td className="table-cell text-sm">{user.email}</td>
-                      <td className="table-cell">
-                        <span className="text-xs px-2 py-0.5 rounded bg-woden-primary-light text-woden-primary font-medium">
-                          {ROLE_LABELS[user.role] || user.role}
-                        </span>
+                      <td className="table-cell font-mono text-xs text-woden-primary">
+                        {config.key}
                       </td>
                       <td className="table-cell">
-                        <div className="flex gap-2">
+                        {editingKey === config.key ? (
+                          <input
+                            type="text"
+                            className="input-field text-sm"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-sm">{config.value}</span>
+                        )}
+                      </td>
+                      <td className="table-cell text-xs text-gray-400">
+                        {config.description}
+                      </td>
+                      <td className="table-cell">
+                        {editingKey === config.key ? (
+                          <div className="flex gap-1">
+                            <button
+                              className="text-xs text-green-600 hover:underline"
+                              onClick={() => handleSave(config.key)}
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              className="text-xs text-gray-400 hover:underline"
+                              onClick={() => setEditingKey(null)}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             className="text-xs text-woden-primary hover:underline"
-                            onClick={() => handleResetPassword(user.email)}
-                            disabled={resettingPassword === user.email}
+                            onClick={() => {
+                              setEditingKey(config.key);
+                              setEditValue(config.value);
+                            }}
                           >
-                            {resettingPassword === user.email
-                              ? "Restableciendo..."
-                              : "Restablecer Clave"}
+                            Editar
                           </button>
-                          <button
-                            className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                            onClick={() => handleRemoveRole(user.email)}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -453,253 +1193,6 @@ export default function ConfiguracionPage() {
           </div>
         </div>
       )}
-
-      {/* ===== Cost Center Management ===== */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          Centros de Costos
-        </h2>
-
-        {ccMessage && (
-          <div
-            className={`mb-4 p-3 rounded-sm text-sm ${
-              ccMessage.type === "success"
-                ? "bg-green-50 border border-green-200 text-green-800"
-                : "bg-red-50 border border-red-200 text-red-800"
-            }`}
-          >
-            {ccMessage.text}
-          </div>
-        )}
-
-        {/* Add Cost Center Form */}
-        <form
-          onSubmit={handleAddCostCenter}
-          className="card border-l-4 border-l-woden-primary mb-4"
-        >
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            Agregar Centro de Costos
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="sm:w-40">
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Código (ej: CC-100)"
-                value={newCcCode}
-                onChange={(e) => setNewCcCode(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex-1">
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Descripción (ej: Tecnología, Finanzas, Operaciones)"
-                value={newCcDesc}
-                onChange={(e) => setNewCcDesc(e.target.value)}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn-primary whitespace-nowrap"
-              disabled={savingCc || !newCcCode.trim() || !newCcDesc.trim()}
-            >
-              {savingCc ? "Guardando..." : "Agregar"}
-            </button>
-          </div>
-        </form>
-
-        {/* Cost Centers Table */}
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-header w-40">Código</th>
-                <th className="table-header">Descripción</th>
-                <th className="table-header w-48">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ccLoading ? (
-                <tr>
-                  <td colSpan={3} className="table-cell text-center text-gray-400">
-                    Cargando...
-                  </td>
-                </tr>
-              ) : costCenters.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="table-cell text-center text-gray-400">
-                    No hay centros de costos registrados
-                  </td>
-                </tr>
-              ) : (
-                costCenters.map((cc) => (
-                  <tr key={cc.id} className="hover:bg-woden-primary-lighter">
-                    <td className="table-cell font-mono text-sm">
-                      {editingCcId === cc.id ? (
-                        <input
-                          type="text"
-                          className="input-field text-sm"
-                          value={editCcCode}
-                          onChange={(e) => setEditCcCode(e.target.value)}
-                        />
-                      ) : (
-                        cc.code
-                      )}
-                    </td>
-                    <td className="table-cell text-sm">
-                      {editingCcId === cc.id ? (
-                        <input
-                          type="text"
-                          className="input-field text-sm"
-                          value={editCcDesc}
-                          onChange={(e) => setEditCcDesc(e.target.value)}
-                          autoFocus
-                        />
-                      ) : (
-                        cc.description
-                      )}
-                    </td>
-                    <td className="table-cell">
-                      {editingCcId === cc.id ? (
-                        <div className="flex gap-2">
-                          <button
-                            className="text-xs text-green-600 hover:underline"
-                            onClick={() => handleSaveCostCenter(cc.id)}
-                            disabled={savingCc}
-                          >
-                            {savingCc ? "Guardando..." : "Guardar"}
-                          </button>
-                          <button
-                            className="text-xs text-gray-400 hover:underline"
-                            onClick={() => setEditingCcId(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button
-                            className="text-xs text-woden-primary hover:underline"
-                            onClick={() => {
-                              setEditingCcId(cc.id);
-                              setEditCcCode(cc.code);
-                              setEditCcDesc(cc.description);
-                            }}
-                          >
-                            Editar
-                          </button>
-                          {isAdmin && (
-                            <button
-                              className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                              onClick={() => handleDeleteCostCenter(cc)}
-                            >
-                              Eliminar
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ===== System Configuration Table ===== */}
-      <h2 className="text-lg font-bold text-gray-900 mb-4">
-        Parámetros del Sistema
-      </h2>
-
-      {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-sm text-green-800 text-sm">
-          {success}
-        </div>
-      )}
-
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="table-header">Clave</th>
-              <th className="table-header">Valor</th>
-              <th className="table-header">Descripción</th>
-              <th className="table-header w-24">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="table-cell text-center text-gray-400"
-                >
-                  Cargando...
-                </td>
-              </tr>
-            ) : (
-              configs.map((config) => (
-                <tr
-                  key={config.key}
-                  className="hover:bg-woden-primary-lighter"
-                >
-                  <td className="table-cell font-mono text-xs text-woden-primary">
-                    {config.key}
-                  </td>
-                  <td className="table-cell">
-                    {editingKey === config.key ? (
-                      <input
-                        type="text"
-                        className="input-field text-sm"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="text-sm">{config.value}</span>
-                    )}
-                  </td>
-                  <td className="table-cell text-xs text-gray-400">
-                    {config.description}
-                  </td>
-                  <td className="table-cell">
-                    {editingKey === config.key ? (
-                      <div className="flex gap-1">
-                        <button
-                          className="text-xs text-green-600 hover:underline"
-                          onClick={() => handleSave(config.key)}
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          className="text-xs text-gray-400 hover:underline"
-                          onClick={() => setEditingKey(null)}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="text-xs text-woden-primary hover:underline"
-                        onClick={() => {
-                          setEditingKey(config.key);
-                          setEditValue(config.value);
-                        }}
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

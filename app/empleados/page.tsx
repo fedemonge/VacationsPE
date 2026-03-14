@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 
+interface Shift {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  effectiveHours: number;
+}
+
 interface Employee {
   id: string;
   employeeCode: string;
@@ -14,6 +23,23 @@ interface Employee {
   supervisorName: string;
   supervisorEmail: string;
   position: string;
+  // Payroll fields
+  documentType: string;
+  documentNumber: string | null;
+  birthDate: string | null;
+  gender: string | null;
+  contractType: string;
+  contractStart: string | null;
+  contractEnd: string | null;
+  baseSalary: number;
+  pensionSystem: string;
+  pensionProvider: string | null;
+  hasDependents: boolean;
+  has5taCatExemption: boolean;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  shiftId: string | null;
+  shift: Shift | null;
 }
 
 const EMPTY_FORM = {
@@ -27,7 +53,28 @@ const EMPTY_FORM = {
   supervisorName: "",
   supervisorEmail: "",
   position: "",
+  // Payroll fields
+  documentType: "DNI",
+  documentNumber: "",
+  birthDate: "",
+  gender: "",
+  contractType: "INDEFINIDO",
+  contractStart: "",
+  contractEnd: "",
+  baseSalary: "",
+  pensionSystem: "AFP",
+  pensionProvider: "",
+  hasDependents: false,
+  has5taCatExemption: false,
+  bankName: "",
+  bankAccountNumber: "",
+  shiftId: "",
 };
+
+const CONTRACT_TYPES = ["INDEFINIDO", "PLAZO_FIJO", "PARCIAL", "FORMATIVO"];
+const PENSION_SYSTEMS = ["AFP", "ONP"];
+const AFP_PROVIDERS = ["HABITAT", "INTEGRA", "PRIMA", "PROFUTURO"];
+const DOC_TYPES = ["DNI", "CE", "PASAPORTE"];
 
 interface CostCenter {
   id: string;
@@ -46,6 +93,7 @@ export default function EmpleadosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [sortColumn, setSortColumn] = useState<string>("fullName");
@@ -61,6 +109,7 @@ export default function EmpleadosPage() {
   useEffect(() => {
     loadEmployees();
     loadCostCenters();
+    loadShifts();
   }, []);
 
   async function loadCostCenters() {
@@ -71,6 +120,13 @@ export default function EmpleadosPage() {
     } catch {
       // ignore
     }
+  }
+
+  async function loadShifts() {
+    try {
+      const res = await fetch("/api/planilla/turnos");
+      if (res.ok) setShifts(await res.json());
+    } catch { /* ignore */ }
   }
 
   async function loadEmployees() {
@@ -104,6 +160,22 @@ export default function EmpleadosPage() {
       supervisorName: emp.supervisorName,
       supervisorEmail: emp.supervisorEmail,
       position: emp.position,
+      // Payroll fields
+      documentType: emp.documentType || "DNI",
+      documentNumber: emp.documentNumber || "",
+      birthDate: emp.birthDate ? emp.birthDate.split("T")[0] : "",
+      gender: emp.gender || "",
+      contractType: emp.contractType || "INDEFINIDO",
+      contractStart: emp.contractStart ? emp.contractStart.split("T")[0] : "",
+      contractEnd: emp.contractEnd ? emp.contractEnd.split("T")[0] : "",
+      baseSalary: emp.baseSalary ? String(emp.baseSalary) : "",
+      pensionSystem: emp.pensionSystem || "AFP",
+      pensionProvider: emp.pensionProvider || "",
+      hasDependents: emp.hasDependents || false,
+      has5taCatExemption: emp.has5taCatExemption || false,
+      bankName: emp.bankName || "",
+      bankAccountNumber: emp.bankAccountNumber || "",
+      shiftId: emp.shiftId || "",
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -130,6 +202,16 @@ export default function EmpleadosPage() {
     const payload = {
       ...form,
       terminationDate: form.terminationDate || null,
+      documentNumber: form.documentNumber || null,
+      birthDate: form.birthDate || null,
+      gender: form.gender || null,
+      contractStart: form.contractStart || null,
+      contractEnd: form.contractEnd || null,
+      baseSalary: form.baseSalary ? parseFloat(form.baseSalary as string) : 0,
+      pensionProvider: form.pensionProvider || null,
+      bankName: form.bankName || null,
+      bankAccountNumber: form.bankAccountNumber || null,
+      shiftId: form.shiftId || null,
     };
 
     try {
@@ -171,7 +253,7 @@ export default function EmpleadosPage() {
     }
   }
 
-  async function handleCSVUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -190,9 +272,16 @@ export default function EmpleadosPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Error al importar CSV");
+        setError(data.error || "Error al importar archivo");
       } else {
-        setSuccess(`${data.imported} empleados importados exitosamente. ${data.errors} errores.`);
+        const parts = [];
+        if (data.imported > 0) parts.push(`${data.imported} nuevos`);
+        if (data.updated > 0) parts.push(`${data.updated} actualizados`);
+        if (data.errors > 0) parts.push(`${data.errors} errores`);
+        setSuccess(`Importación completada: ${parts.join(", ")}.`);
+        if (data.errorDetails && data.errorDetails.length > 0) {
+          setError(`Errores: ${data.errorDetails.slice(0, 5).join("; ")}${data.errorDetails.length > 5 ? ` (+${data.errorDetails.length - 5} más)` : ""}`);
+        }
         loadEmployees();
       }
     } catch {
@@ -272,13 +361,13 @@ export default function EmpleadosPage() {
         </div>
         <div className="flex gap-3">
           <label className="btn-secondary cursor-pointer">
-            {csvUploading ? "Importando..." : "Importar CSV"}
+            {csvUploading ? "Importando..." : "Importar Archivo"}
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv"
+              accept=".csv,.txt,.xlsx,.xls"
               className="hidden"
-              onChange={handleCSVUpload}
+              onChange={handleFileUpload}
               disabled={csvUploading}
             />
           </label>
@@ -500,7 +589,95 @@ export default function EmpleadosPage() {
               />
             </div>
           </div>
-          <button type="submit" className="btn-primary">
+
+          {/* Payroll Data Section */}
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Datos de Planilla</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="label-field">Tipo Documento</label>
+                <select className="input-field" value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value })}>
+                  {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-field">Nro. Documento</label>
+                <input type="text" className="input-field" value={form.documentNumber} onChange={(e) => setForm({ ...form, documentNumber: e.target.value })} placeholder="12345678" />
+              </div>
+              <div>
+                <label className="label-field">Fecha Nacimiento</label>
+                <input type="date" className="input-field" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+              </div>
+              <div>
+                <label className="label-field">Género</label>
+                <select className="input-field" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="M">Masculino</option>
+                  <option value="F">Femenino</option>
+                </select>
+              </div>
+              <div>
+                <label className="label-field">Tipo Contrato</label>
+                <select className="input-field" value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })}>
+                  {CONTRACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-field">Fecha Inicio Contrato</label>
+                <input type="date" className="input-field" value={form.contractStart} onChange={(e) => setForm({ ...form, contractStart: e.target.value })} />
+              </div>
+              <div>
+                <label className="label-field">Fecha Fin Contrato</label>
+                <input type="date" className="input-field" value={form.contractEnd} onChange={(e) => setForm({ ...form, contractEnd: e.target.value })} />
+              </div>
+              <div>
+                <label className="label-field">Sueldo Base</label>
+                <input type="number" step="0.01" min="0" className="input-field" value={form.baseSalary} onChange={(e) => setForm({ ...form, baseSalary: e.target.value })} placeholder="0.00" />
+              </div>
+              <div>
+                <label className="label-field">Sistema Pensión</label>
+                <select className="input-field" value={form.pensionSystem} onChange={(e) => setForm({ ...form, pensionSystem: e.target.value })}>
+                  {PENSION_SYSTEMS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              {form.pensionSystem === "AFP" && (
+                <div>
+                  <label className="label-field">AFP</label>
+                  <select className="input-field" value={form.pensionProvider} onChange={(e) => setForm({ ...form, pensionProvider: e.target.value })}>
+                    <option value="">Seleccionar...</option>
+                    {AFP_PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="label-field">Turno</label>
+                <select className="input-field" value={form.shiftId} onChange={(e) => setForm({ ...form, shiftId: e.target.value })}>
+                  <option value="">Sin turno</option>
+                  {shifts.map((s) => <option key={s.id} value={s.id}>{s.code} - {s.name} ({s.startTime}-{s.endTime})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-field">Banco</label>
+                <input type="text" className="input-field" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="BBVA, BCP, Scotiabank..." />
+              </div>
+              <div>
+                <label className="label-field">Nro. Cuenta</label>
+                <input type="text" className="input-field" value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} />
+              </div>
+              <div className="flex items-center gap-6 pt-5">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.hasDependents === true} onChange={(e) => setForm({ ...form, hasDependents: e.target.checked })} className="accent-woden-primary" />
+                  Dependientes
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.has5taCatExemption === true} onChange={(e) => setForm({ ...form, has5taCatExemption: e.target.checked })} className="accent-woden-primary" />
+                  Exonerado 5ta
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" className="btn-primary mt-4">
             {isEditing ? "Guardar Cambios" : "Crear Empleado"}
           </button>
         </form>
@@ -592,17 +769,28 @@ export default function EmpleadosPage() {
       {/* Supervisor Assignment Section */}
       <SupervisorSection employees={employees} onUpdate={loadEmployees} />
 
-      {/* CSV Format Info */}
+      {/* Import Format Info */}
       <div className="mt-6 p-4 bg-woden-primary-lighter rounded-sm">
         <h3 className="text-sm font-semibold text-gray-700 mb-2">
-          Formato CSV para importación
+          Formatos de importación (CSV, TXT, XLSX)
         </h3>
-        <p className="text-xs text-gray-500 font-mono">
-          employeeCode,fullName,email,hireDate,terminationDate,costCenter,costCenterDesc,supervisorName,supervisorEmail,position
+        <p className="text-xs text-gray-500 mb-2">
+          El sistema detecta automáticamente las columnas por nombre de encabezado. Columnas soportadas:
         </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Las fechas deben estar en formato YYYY-MM-DD. La primera fila se toma
-          como encabezado. Dejar terminationDate vacío para empleados activos.
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-500">
+          <span><strong>ID</strong> → Código empleado</span>
+          <span><strong>Nombre del empleado</strong> → Nombre completo</span>
+          <span><strong>Correo electrónico de trabajo</strong> → Email</span>
+          <span><strong>Primera fecha del contrato</strong> → Fecha ingreso</span>
+          <span><strong>Fecha de salida</strong> → Fecha cese</span>
+          <span><strong>Departamento</strong> → Centro de costo</span>
+          <span><strong>Puesto de trabajo</strong> → Cargo</span>
+          <span><strong>Gerente</strong> → Supervisor</span>
+          <span><strong>Teléfono del trabajo</strong> → Teléfono</span>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          La primera fila se toma como encabezado. Las columnas faltantes se llenan con valores por defecto.
+          TXT soporta delimitadores tab, pipe (|) y punto y coma (;).
         </p>
       </div>
 
