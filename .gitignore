@@ -4,3 +4,12 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 /backups/
+prisma/dev.db
+.env
+.claude/
+__pycache__/
+*.pyc
+TestData/
+Training and Documentation/
+payroll_api/.env
+payroll_api/app/__pycache__/

@@ -649,3 +649,67 @@ model UserMenuGrant {
   @@unique([userEmail, menuPath])
   @@index([userEmail])
 }
+
+// ── Recupero (Field Operations / Equipment Recovery) ──────────
+
+model RecuperoImport {
+  id              String   @id @default(uuid())
+  fileName        String
+  source          String   @default("MANUAL")
+  totalRows       Int      @default(0)
+  importedRows    Int      @default(0)
+  errorRows       Int      @default(0)
+  importedByEmail String?
+  importedByName  String?
+  createdAt       DateTime @default(now())
+
+  tasks RecuperoTask[]
+
+  @@index([createdAt])
+}
+
+model RecuperoTask {
+  id                String    @id @default(uuid())
+  importId          String
+  externalId        String?
+  contrato          String?
+  grupo             String?
+  documentoId       String?
+  agenteCampo       String
+  cedulaUsuario     String?
+  nombreUsuario     String?
+  direccion         String?
+  ciudad            String?
+  departamento      String?
+  latitud           Float?
+  longitud          Float?
+  tarea             String?
+  fechaCierre       DateTime?
+  estado            String?
+  latitudCierre     Float?
+  longitudCierre    Float?
+  tipoCierre        String?
+  tipoBase          String?
+  distanciaMetros   Float?
+  esQuemada         Boolean   @default(false)
+  esAgendado        Boolean   @default(true)
+  coordStatus       String    @default("VALID")
+  latitudExtraida   Float?
+  longitudExtraida  Float?
+  periodoYear       Int
+  periodoMonth      Int
+  periodoDay        Int       @default(1)
+  createdAt         DateTime  @default(now())
+
+  import RecuperoImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([agenteCampo])
+  @@index([estado])
+  @@index([tipoBase])
+  @@index([periodoYear, periodoMonth])
+  @@index([esQuemada])
+  @@index([esAgendado])
+  @@index([coordStatus])
+  @@index([tipoCierre])
+}
