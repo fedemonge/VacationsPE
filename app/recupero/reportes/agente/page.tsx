@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList,
 } from "recharts";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const MONTHS = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -125,15 +127,41 @@ export default function AgentReportPage() {
             <h1 className="text-xl font-bold text-gray-900">Reporte Individual de Agente</h1>
           </div>
           {report && (
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-[#EA7704] text-white rounded-lg hover:bg-[#d06a03] text-sm font-medium flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Imprimir
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  const el = document.getElementById("agent-report");
+                  if (!el) return;
+                  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                  const imgData = canvas.toDataURL("image/png");
+                  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+                  const pdfW = pdf.internal.pageSize.getWidth();
+                  const pdfH = pdf.internal.pageSize.getHeight();
+                  const imgW = canvas.width;
+                  const imgH = canvas.height;
+                  const ratio = Math.min(pdfW / imgW, pdfH / imgH);
+                  const w = imgW * ratio;
+                  const h = imgH * ratio;
+                  pdf.addImage(imgData, "PNG", (pdfW - w) / 2, 2, w, h);
+                  pdf.save(`Reporte_${report.agenteCampo.replace(/\s+/g, "_")}_${periodLabel.replace(/\s+/g, "_")}.pdf`);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                PDF
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-[#EA7704] text-white rounded-lg hover:bg-[#d06a03] text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Imprimir
+              </button>
+            </div>
           )}
         </div>
         <div className="grid grid-cols-4 gap-3">
