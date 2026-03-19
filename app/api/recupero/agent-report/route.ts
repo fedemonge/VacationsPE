@@ -70,30 +70,39 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    // === Daily Trend (for the selected month or all months) ===
-    const trendGroupBy = periodoMonth ? "periodoDay" : "periodoMonth";
+    // === Trend — respect trendView param ===
+    const trendViewParam = searchParams.get("trendView") || "daily";
+    const trendGroupBy = trendViewParam === "monthly" ? "periodoMonth" : "periodoDay";
+
+    // For monthly view, use year-only filter (all months); for daily, use current period filter
+    const trendPeriodWhere: Record<string, unknown> = trendViewParam === "monthly"
+      ? { periodoYear }
+      : periodWhere;
+    const trendAgentWhere: Record<string, unknown> = trendViewParam === "monthly"
+      ? { periodoYear, agenteCampo }
+      : agentWhere;
 
     const agentTrend = await prisma.recuperoTask.groupBy({
       by: [trendGroupBy],
-      where: agentWhere,
+      where: trendAgentWhere,
       _count: { id: true },
     });
 
     const agentExitosasTrend = await prisma.recuperoTask.groupBy({
       by: [trendGroupBy],
-      where: { ...agentWhere, tipoCierre: "RECUPERADO WODEN" },
+      where: { ...trendAgentWhere, tipoCierre: "RECUPERADO WODEN" },
       _count: { id: true },
     });
 
     const companyTrend = await prisma.recuperoTask.groupBy({
       by: [trendGroupBy],
-      where: periodWhere,
+      where: trendPeriodWhere,
       _count: { id: true },
     });
 
     const companyExitosasTrend = await prisma.recuperoTask.groupBy({
       by: [trendGroupBy],
-      where: { ...periodWhere, tipoCierre: "RECUPERADO WODEN" },
+      where: { ...trendPeriodWhere, tipoCierre: "RECUPERADO WODEN" },
       _count: { id: true },
     });
 
@@ -167,7 +176,7 @@ export async function GET(request: NextRequest) {
       day: dayParam,
       kpis,
       trend,
-      trendType: periodoMonth ? "daily" : "monthly",
+      trendType: trendViewParam,
       hourly: hourly.map(h => ({ hour: `${h.hour.toString().padStart(2, "0")}:00`, ...h })),
       resultados,
     });
