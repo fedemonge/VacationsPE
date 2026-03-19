@@ -26,7 +26,15 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 }
 
+// Admin emails that always resolve to ADMINISTRADOR regardless of DB state
+const ADMIN_EMAILS = ["fmonge@woden.com.pe"];
+
 export async function resolveUserRole(email: string): Promise<UserRole> {
+  // Guarantee admin role for known admin emails (survives DB resets)
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    return "ADMINISTRADOR";
+  }
+
   const config = await prisma.systemConfiguration.findFirst({
     where: { key: `USER_ROLE_${email}` },
   });
