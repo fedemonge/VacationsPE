@@ -76,9 +76,9 @@ export default function RecuperoDashboardPage() {
   const [tiposCierre, setTiposCierre] = useState<string[]>([]);
   const [tipoCierre, setTipoCierre] = useState("");
 
-  // Chart
-  // chartAgent removed - chart now uses the top-level agente filter
+  // Charts
   const [chartData, setChartData] = useState<Record<string, unknown>[]>([]);
+  const [hourlyData, setHourlyData] = useState<Record<string, unknown>[]>([]);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -156,6 +156,10 @@ export default function RecuperoDashboardPage() {
       .then(r => r.ok ? r.json() : { chartData: [] })
       .then(d => setChartData(d.chartData || []))
       .catch(() => setChartData([]));
+    fetch(`/api/recupero/chart-hourly?${qs}`)
+      .then(r => r.ok ? r.json() : { chartData: [] })
+      .then(d => setHourlyData(d.chartData || []))
+      .catch(() => setHourlyData([]));
   }, [buildParams]);
 
   // Pagination (server-side — tasks already limited to 50)
@@ -377,6 +381,32 @@ export default function RecuperoDashboardPage() {
                   <LabelList dataKey="agentEfectividad" position="bottom" style={{ fontSize: 10, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
                 </Line>
               )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center py-12 text-gray-400 text-sm">Cargando...</div>
+        )}
+      </div>
+
+      {/* Hourly Distribution Chart */}
+      <div className="bg-white rounded-lg border p-4 mb-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">
+          Distribución Horaria de Cierres{agente ? ` — ${agente}` : ""}
+        </h3>
+        {hourlyData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={hourlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="stack" barSize={24}>
+                <LabelList dataKey="exitosas" position="inside" style={{ fontSize: 9, fill: "#fff", fontWeight: 600 }} />
+              </Bar>
+              <Bar dataKey="noExitosas" name="No Exitosas" fill="#EF4444" stackId="stack" barSize={24}>
+                <LabelList dataKey="noExitosas" position="inside" style={{ fontSize: 9, fill: "#fff", fontWeight: 600 }} />
+              </Bar>
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
