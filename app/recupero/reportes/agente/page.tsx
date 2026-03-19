@@ -46,6 +46,7 @@ export default function AgentReportPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
   const [day, setDay] = useState("");
+  const [trendView, setTrendView] = useState<"daily" | "monthly">("daily");
   const [selectedAgent, setSelectedAgent] = useState("");
   const [agentes, setAgentes] = useState<string[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
@@ -68,13 +69,14 @@ export default function AgentReportPage() {
       params.set("periodoYear", String(year));
       if (month) params.set("periodoMonth", month);
       if (day) params.set("day", day);
+      params.set("trendView", trendView);
       const res = await fetch(`/api/recupero/agent-report?${params}`);
       if (res.ok) {
         setReport(await res.json());
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [selectedAgent, year, month, day]);
+  }, [selectedAgent, year, month, day, trendView]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
 
@@ -132,17 +134,20 @@ export default function AgentReportPage() {
                 onClick={async () => {
                   const el = document.getElementById("agent-report");
                   if (!el) return;
-                  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                  const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff", windowWidth: 1100 });
                   const imgData = canvas.toDataURL("image/png");
                   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
                   const pdfW = pdf.internal.pageSize.getWidth();
                   const pdfH = pdf.internal.pageSize.getHeight();
+                  const margin = 5;
+                  const usableW = pdfW - margin * 2;
+                  const usableH = pdfH - margin * 2;
                   const imgW = canvas.width;
                   const imgH = canvas.height;
-                  const ratio = Math.min(pdfW / imgW, pdfH / imgH);
+                  const ratio = Math.min(usableW / imgW, usableH / imgH);
                   const w = imgW * ratio;
                   const h = imgH * ratio;
-                  pdf.addImage(imgData, "PNG", (pdfW - w) / 2, 2, w, h);
+                  pdf.addImage(imgData, "PNG", margin + (usableW - w) / 2, margin, w, h);
                   pdf.save(`Reporte_${report.agenteCampo.replace(/\s+/g, "_")}_${periodLabel.replace(/\s+/g, "_")}.pdf`);
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center gap-2"
@@ -164,7 +169,7 @@ export default function AgentReportPage() {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           <select value={year} onChange={e => setYear(Number(e.target.value))} className="border rounded-md px-3 py-2 text-sm">
             {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -180,6 +185,20 @@ export default function AgentReportPage() {
             <option value="">Seleccionar agente...</option>
             {agentes.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
+          <div className="flex rounded-md overflow-hidden border">
+            <button
+              onClick={() => setTrendView("daily")}
+              className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${trendView === "daily" ? "bg-[#EA7704] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              Por Día
+            </button>
+            <button
+              onClick={() => setTrendView("monthly")}
+              className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${trendView === "monthly" ? "bg-[#EA7704] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              Por Mes
+            </button>
+          </div>
         </div>
       </div>
 
@@ -197,116 +216,101 @@ export default function AgentReportPage() {
 
       {/* === THE REPORT === */}
       {!loading && report && (
-        <div className="print:p-0" id="agent-report">
+        <div className="print:p-0" id="agent-report" style={{ maxWidth: "1100px", margin: "0 auto" }}>
           {/* Header */}
-          <div className="flex items-center justify-between border-b-2 border-[#EA7704] pb-3 mb-4">
+          <div className="flex items-center justify-between border-b-2 border-[#EA7704] pb-2 mb-2">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{report.agenteCampo}</h2>
-              <p className="text-sm text-gray-500">Reporte de Efectividad — {periodLabel}</p>
+              <h2 className="text-base font-bold text-gray-900">{report.agenteCampo}</h2>
+              <p className="text-xs text-gray-500">Reporte de Efectividad — {periodLabel}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-400">Woden Peru — Recupero</p>
-              <p className="text-xs text-gray-400">Generado: {new Date().toLocaleDateString("es-PE")}</p>
+              <p className="text-[10px] text-gray-400">Woden Peru — Recupero</p>
+              <p className="text-[10px] text-gray-400">Generado: {new Date().toLocaleDateString("es-PE")}</p>
             </div>
           </div>
 
-          {/* KPI Grid — Agent vs Company */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-            {kpiCompare("Total Gestiones", report.kpis.agent.total, report.kpis.company.avgPerAgent || 0)}
-            {kpiCompare("Efectividad", report.kpis.agent.efectividad, report.kpis.company.efectividad, "pct")}
-            {kpiCompare("Exitosas", report.kpis.agent.exitosas, Math.round((report.kpis.company.exitosas) / (report.kpis.company.numAgents || 1)))}
-            {kpiCompare("Tasa Quemadas", report.kpis.agent.tasaQuemadas, report.kpis.company.tasaQuemadas, "pct")}
-          </div>
-
-          {/* Summary bar */}
-          <div className="bg-gray-50 rounded-lg p-3 mb-4 grid grid-cols-5 gap-2 text-center text-xs">
-            <div>
-              <p className="font-bold text-gray-900 text-base">{report.kpis.agent.total}</p>
-              <p className="text-gray-500">Total</p>
-            </div>
-            <div>
-              <p className="font-bold text-green-700 text-base">{report.kpis.agent.exitosas}</p>
-              <p className="text-gray-500">Exitosas</p>
-            </div>
-            <div>
-              <p className="font-bold text-red-600 text-base">{report.kpis.agent.noExitosas}</p>
-              <p className="text-gray-500">No Exitosas</p>
-            </div>
-            <div>
-              <p className="font-bold text-gray-800 text-base">{report.kpis.agent.quemadas}</p>
-              <p className="text-gray-500">Quemadas</p>
-            </div>
-            <div>
-              <p className="font-bold text-yellow-600 text-base">{report.kpis.agent.sinCoords}</p>
-              <p className="text-gray-500">Sin Coords</p>
+          {/* KPI Grid + Summary in one row */}
+          <div className="grid grid-cols-9 gap-1.5 mb-2">
+            {/* 4 KPI comparison cards */}
+            <div className="col-span-2">{kpiCompare("Total Gestiones", report.kpis.agent.total, report.kpis.company.avgPerAgent || 0)}</div>
+            <div className="col-span-2">{kpiCompare("Efectividad", report.kpis.agent.efectividad, report.kpis.company.efectividad, "pct")}</div>
+            <div className="col-span-2">{kpiCompare("Exitosas", report.kpis.agent.exitosas, Math.round((report.kpis.company.exitosas) / (report.kpis.company.numAgents || 1)))}</div>
+            <div className="col-span-2">{kpiCompare("Tasa Quemadas", report.kpis.agent.tasaQuemadas, report.kpis.company.tasaQuemadas, "pct")}</div>
+            {/* Summary column */}
+            <div className="border rounded-lg p-2 bg-gray-50 flex flex-col justify-center text-center text-[10px]">
+              <p className="font-bold text-sm text-gray-900">{report.kpis.agent.total}</p>
+              <p className="text-gray-400">Total</p>
+              <div className="flex justify-center gap-2 mt-1">
+                <span className="text-green-700 font-bold">{report.kpis.agent.exitosas}</span>
+                <span className="text-red-600 font-bold">{report.kpis.agent.noExitosas}</span>
+                <span className="text-gray-600 font-bold">{report.kpis.agent.quemadas}q</span>
+              </div>
             </div>
           </div>
 
-          {/* Two charts side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Two charts side by side — compact */}
+          <div className="grid grid-cols-2 gap-2 mb-2">
             {/* Trend Chart */}
-            <div className="border rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-gray-600 mb-2">
+            <div className="border rounded-lg p-2">
+              <h3 className="text-[10px] font-semibold text-gray-600 mb-1">
                 Tendencia {report.trendType === "daily" ? "Diaria" : "Mensual"}
               </h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={report.trend} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={160}>
+                <ComposedChart data={report.trend} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="period" tick={{ fontSize: 9 }} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 9 }} domain={[0, 100]} unit="%" />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} />
-                  <Tooltip contentStyle={{ fontSize: 11 }} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar yAxisId="right" dataKey="agentExitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={14} />
-                  <Bar yAxisId="right" dataKey="agentNoExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={14} />
-                  <Line yAxisId="left" type="monotone" dataKey="companyEfectividad" name="Cía %" stroke="#EA7704" strokeWidth={2} dot={{ r: 2 }}>
-                    <LabelList dataKey="companyEfectividad" position="top" style={{ fontSize: 8, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
+                  <XAxis dataKey="period" tick={{ fontSize: 8 }} tickFormatter={(v) => report.trendType === "monthly" ? (MONTHS[v - 1]?.substring(0, 3) || v) : v} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 8 }} domain={[0, 100]} unit="%" />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 8 }} />
+                  <Tooltip contentStyle={{ fontSize: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: 9 }} />
+                  <Bar yAxisId="right" dataKey="agentExitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={10} />
+                  <Bar yAxisId="right" dataKey="agentNoExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={10} />
+                  <Line yAxisId="left" type="monotone" dataKey="companyEfectividad" name="Cía %" stroke="#EA7704" strokeWidth={2} dot={{ r: 1.5 }}>
+                    <LabelList dataKey="companyEfectividad" position="top" style={{ fontSize: 7, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
                   </Line>
-                  <Line yAxisId="left" type="monotone" dataKey="agentEfectividad" name="Agente %" stroke="#3B82F6" strokeWidth={2} dot={{ r: 2 }}>
-                    <LabelList dataKey="agentEfectividad" position="bottom" style={{ fontSize: 8, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
+                  <Line yAxisId="left" type="monotone" dataKey="agentEfectividad" name="Agente %" stroke="#3B82F6" strokeWidth={2} dot={{ r: 1.5 }}>
+                    <LabelList dataKey="agentEfectividad" position="bottom" style={{ fontSize: 7, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
                   </Line>
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
 
             {/* Hourly Chart */}
-            <div className="border rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-gray-600 mb-2">Distribución Horaria</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={report.hourly} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+            <div className="border rounded-lg p-2">
+              <h3 className="text-[10px] font-semibold text-gray-600 mb-1">Distribución Horaria</h3>
+              <ResponsiveContainer width="100%" height={160}>
+                <ComposedChart data={report.hourly} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={1} />
-                  <YAxis tick={{ fontSize: 9 }} />
-                  <Tooltip contentStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={12} />
-                  <Bar dataKey="noExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={12} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 7 }} interval={1} />
+                  <YAxis tick={{ fontSize: 8 }} />
+                  <Tooltip contentStyle={{ fontSize: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={10} />
+                  <Bar dataKey="noExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={10} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Results Breakdown */}
-          <div className="border rounded-lg p-3 mb-4">
-            <h3 className="text-xs font-semibold text-gray-600 mb-2">Desglose por Resultado</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {report.resultados.map((r) => (
-                <div
-                  key={r.tipoCierre}
-                  className={`rounded px-2 py-1.5 text-xs ${
-                    r.tipoCierre === "RECUPERADO WODEN"
-                      ? "bg-green-50 border border-green-200"
-                      : "bg-gray-50 border border-gray-200"
-                  }`}
-                >
-                  <p className="font-medium text-gray-700 truncate">{r.tipoCierre}</p>
-                  <p className="text-gray-900 font-bold">{r.count} <span className="font-normal text-gray-400">({r.pct}%)</span></p>
-                </div>
-              ))}
-            </div>
+          {/* Results Breakdown — horizontal table */}
+          <div className="border rounded-lg p-2 mb-1 overflow-hidden">
+            <h3 className="text-[10px] font-semibold text-gray-600 mb-1">Desglose por Resultado</h3>
+            <table className="w-full text-[9px]">
+              <tbody>
+                <tr>
+                  {report.resultados.map((r) => (
+                    <td key={r.tipoCierre} className={`px-1.5 py-1 border-r last:border-r-0 ${r.tipoCierre === "RECUPERADO WODEN" ? "bg-green-50" : ""}`}>
+                      <p className="text-gray-600 leading-tight whitespace-nowrap">{r.tipoCierre}</p>
+                      <p className="font-bold text-gray-900">{r.count} <span className="font-normal text-gray-400">({r.pct}%)</span></p>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Footer */}
-          <div className="border-t pt-2 flex justify-between text-[9px] text-gray-400">
+          <div className="border-t pt-1 flex justify-between text-[8px] text-gray-400">
             <p>No Exitosas incluye Quemadas. Quemadas = cierre a &gt; 500m del destino. Comparación vs promedio compañía por agente.</p>
             <p>Página 1 de 1</p>
           </div>
