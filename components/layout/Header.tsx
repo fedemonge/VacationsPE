@@ -80,6 +80,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Recupero",
+    items: [
+      { href: "/recupero", label: "Mapa de Operaciones" },
+      { href: "/recupero/reportes", label: "Reportes" },
+      { href: "/recupero/importar", label: "Importar Datos" },
+    ],
+  },
+  {
     label: "Configuración",
     items: [
       { href: "/backups", label: "Respaldos" },
@@ -253,6 +261,7 @@ export default function Header() {
   const pathname = usePathname();
 
   function getSectionName(): string {
+    if (pathname?.startsWith("/recupero")) return "Recupero";
     if (pathname?.startsWith("/fec")) return "FEC";
     if (pathname?.startsWith("/planilla")) return "Planilla Peru";
     if (
@@ -273,7 +282,7 @@ export default function Header() {
       return "Vacaciones";
     if (pathname?.startsWith("/configuracion") || pathname?.startsWith("/backups") || pathname?.startsWith("/cambiar-password"))
       return "Configuración";
-    return "Capital Humano";
+    return "Sistemas de Gestión";
   }
 
   function toggleMobileGroup(label: string) {

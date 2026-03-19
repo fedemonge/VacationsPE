@@ -7,8 +7,8 @@ import AuthProvider from "@/components/AuthProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Woden - Gestión de Capital Humano",
-  description: "Sistema de gestión de capital humano y control de saldos",
+  title: "Woden - Sistemas de Gestión",
+  description: "Sistemas de gestión empresarial Woden Group",
 };
 
 export default function RootLayout({

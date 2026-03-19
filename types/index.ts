@@ -294,6 +294,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/planilla/excepciones",
     "/fec",
     "/fec/reportes",
+    "/recupero",
+    "/recupero/reportes",
+    "/recupero/importar",
     "/cambiar-password",
   ],
   GERENTE_PAIS: [
@@ -315,6 +318,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/planilla/excepciones",
     "/fec",
     "/fec/reportes",
+    "/recupero",
+    "/recupero/reportes",
+    "/recupero/importar",
     "/cambiar-password",
   ],
   OFICIAL_SEGURIDAD: [
@@ -332,6 +338,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/panel/personal",
     "/fec",
     "/fec/reportes",
+    "/recupero",
+    "/recupero/reportes",
+    "/recupero/importar",
     "/cambiar-password",
   ],
   ADMINISTRADOR: [
@@ -355,6 +364,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/fec",
     "/fec/reportes",
     "/fec/admin",
+    "/recupero",
+    "/recupero/reportes",
+    "/recupero/importar",
     "/cambiar-password",
   ],
 };

@@ -180,7 +180,7 @@ export default function HomePage() {
       <div className="max-w-md mx-auto mt-16">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-3">
-            Gestión de Capital Humano
+            Sistemas de Gestión
           </h1>
           <p className="text-gray-500">
             Ingrese su correo electrónico para acceder al sistema.
@@ -271,7 +271,7 @@ export default function HomePage() {
       {/* Hero */}
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-gray-900 mb-3">
-          Sistema de Gestión de Capital Humano
+          Sistemas de Gestión
         </h1>
         <p className="text-gray-500 max-w-2xl mx-auto">
           Bienvenido, <span className="font-medium">{email}</span>.

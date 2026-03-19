@@ -1,6 +1,6 @@
 # SistemasWoden - Sistema de Gestión Empresarial
 
-> Plataforma multi-módulo para gestión de Capital Humano, Planilla Perú y FEC (Financiando el Crecimiento). Alojado en AWS Amplify con integración Power Automate (Office 365).
+> Plataforma multi-módulo para gestión de Capital Humano, Planilla Perú, FEC y Recupero. Alojado en AWS Amplify con integración Power Automate (Office 365).
 
 ## Descripción General
 
@@ -8,6 +8,7 @@ Sistema web empresarial con los siguientes módulos:
 1. **Vacaciones** — solicitudes, aprobaciones 3 niveles, saldos FIFO, reportes, organigrama, personal
 2. **Planilla Peru** — cálculo de planilla, asistencia, lotes BBVA, parámetros legales peruanos
 3. **FEC** — pipeline Kanban de ideas de ahorro/uso, reportes XLSX/PDF, tipos de cambio, empresas
+4. **Recupero** — control de gestiones de campo para recuperación de equipos (Claro, DirecTV, Mi Fibra)
 
 Interfaz en español (es-PE). Autenticación cookie-based con SHA-256.
 
@@ -300,3 +301,79 @@ Todos autenticados via header `x-webhook-secret`.
 - `Set` iteration: siempre usar `Array.from(new Set(...))` (tsconfig target es5)
 - OneDrive causa EPERM/EINVAL en `.next` cache — hacer `rm -rf .next` antes de builds limpios
 - Prisma DLL locked por dev server — `taskkill //F //IM node.exe` antes de `prisma generate`
+
+---
+
+## Módulo Recupero
+
+Control de gestiones de campo para recuperación de equipos de telecomunicaciones (Claro, DirecTV, Mi Fibra).
+
+### Arquitectura
+
+```
+Páginas:
+  /recupero              — Dashboard: KPIs, gráfico efectividad, mapa Leaflet, tabla paginada
+  /recupero/importar     — Carga manual (.txt/.xlsx), purga, eliminación individual, historial
+  /recupero/reportes     — Reportes tabulares: Efectividad, Quemadas, Agentes, Fuera de Perú, Sin Coords
+
+API Routes:
+  GET  /api/recupero              — Tareas paginadas con filtros
+  GET  /api/recupero/stats        — KPIs agregados
+  GET  /api/recupero/filters      — Valores únicos para dropdowns
+  GET  /api/recupero/chart        — Datos diarios para gráfico efectividad
+  GET  /api/recupero/reportes     — Reportes (effectiveness, burned, agents, outside-peru, missing-coords)
+  POST /api/recupero/importar     — Carga con progress tracking, deduplicación por externalId
+  GET  /api/recupero/importar     — Historial de importaciones / polling de progreso
+  DEL  /api/recupero/importar/[id] — Eliminar importación individual (admin)
+  POST /api/recupero/purge        — Purgar todos los datos (admin)
+  POST /api/recupero/webhook      — Import via webhook (n8n / SharePoint)
+
+Librerías:
+  lib/recupero/types.ts   — isSuccessful(), isAgendado(), interfaces
+  lib/recupero/geo.ts     — determineCoordStatus(), isBurned(), haversineDistance(), isInsidePeru()
+  lib/recupero/parser.ts  — parseFile() (detecta delimitador ¬ / tab / comma), parseDate()
+
+Componentes:
+  components/recupero/RecuperoMap.tsx — Mapa Leaflet con pins estilo Google Maps (4 capas)
+```
+
+### Modelos Prisma
+
+- **RecuperoImport** — registro de cada carga (fileName, source, totalRows, importedRows, errorRows)
+- **RecuperoTask** — cada gestión de campo con coords, estado, tipo cierre, distancia, flags
+
+### Lógica de Negocio
+
+| Concepto | Regla |
+|----------|-------|
+| Exitosa | `tipoCierre === "RECUPERADO WODEN"` |
+| No Exitosa | Cualquier otro `tipoCierre` |
+| Quemada | No exitosa + cierre a > 500m del punto de visita |
+| Agendado | `tarea` NO empieza con "VISITA" |
+| No Agendado | `tarea` empieza con "VISITA" |
+| Dentro de Perú | lat -18.35 a -0.04, lon -81.33 a -68.65 |
+| Coords extraídas | Regex busca "(COORDENADAS: lat, lon)" en campo dirección |
+
+### Pins del Mapa (4 capas toggleables)
+
+| Capa | Color | Coords usadas |
+|------|-------|---------------|
+| Agendadas | Amarillo | latitud/longitud (del cliente) — TODOS los registros |
+| Exitosas | Verde | latitudCierre/longitudCierre (donde cerró el agente) |
+| No Exitosas | Rojo | latitudCierre/longitudCierre |
+| Quemadas | Negro | latitudCierre/longitudCierre |
+
+### Formato del Archivo TXT
+
+- Delimitador: `¬` (not sign)
+- 19 columnas: id, contrato, grupo, documento_id, agente_campo, cedula_usuario, nombre_usuario, direccion, ciudad, departamento, latitud, longitud, tarea, fecha_cierre, estado, latitud_cierre, longitud_cierre, tipo_cierre, tipo_base
+- Coordenadas con "NaN" = no disponibles
+- Algunas coords vienen embebidas en campo dirección como "(COORDENADAS: lat, lon)"
+
+### Filtros Disponibles
+
+Año, Mes, Día, Tipo Base, Agente, Grupo, Coordenadas, Resultado (tipoCierre), Agendamiento
+
+### Deduplicación
+
+Al importar, se verifica por `externalId` (columna `id` del archivo). Registros con externalId ya existente se omiten.
