@@ -11,7 +11,7 @@ const progressMap = new Map<
   { processed: number; total: number; phase: string; done: boolean; result?: Record<string, unknown> }
 >();
 
-export function getProgress(importId: string) {
+function getProgress(importId: string) {
   return progressMap.get(importId) || null;
 }
 
@@ -70,6 +70,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Detect if file has equipment data
+    const hasEquipment = rows.some(r => r.serial !== undefined);
+
+    // Group rows by externalId (id) for equipment-level handling
+    const grouped = new Map<string, typeof rows>();
+    const ungrouped: typeof rows = [];
+    for (const row of rows) {
+      if (row.id) {
+        const group = grouped.get(row.id);
+        if (group) {
+          group.push(row);
+        } else {
+          grouped.set(row.id, [row]);
+        }
+      } else {
+        ungrouped.push(row);
+      }
+    }
+
+    // Total visits = unique groups + ungrouped rows
+    const totalVisits = grouped.size + ungrouped.length;
+
     // Create the import record
     const importRecord = await prisma.recuperoImport.create({
       data: {
@@ -84,13 +106,13 @@ export async function POST(request: NextRequest) {
     // Set up progress tracking
     progressMap.set(importRecord.id, {
       processed: 0,
-      total: rows.length,
+      total: totalVisits,
       phase: "Procesando registros...",
       done: false,
     });
 
     // Process in background (don't await)
-    processImport(importRecord.id, rows).catch((err) => {
+    processImport(importRecord.id, rows, hasEquipment).catch((err) => {
       console.error("[RECUPERO IMPORT] Background error:", err);
       const p = progressMap.get(importRecord.id);
       if (p) {
@@ -114,7 +136,96 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processImport(importId: string, rows: ReturnType<typeof parseFile>) {
+// Build a task data object from a row (first row of a group for visit-level data)
+function buildTaskData(
+  importId: string,
+  row: ReturnType<typeof parseFile>[number],
+  equiposRecuperados: number
+) {
+  const { coordStatus, finalLat, finalLon } = determineCoordStatus(
+    row.latitud,
+    row.longitud,
+    row.direccion
+  );
+
+  const successful = isSuccessful(row.tipo_cierre);
+  const burnResult = isBurned(
+    successful,
+    finalLat,
+    finalLon,
+    row.latitud_cierre ?? null,
+    row.longitud_cierre ?? null
+  );
+
+  const fechaCierreDate = parseDate(row.fecha_cierre);
+  const periodoYear = fechaCierreDate
+    ? fechaCierreDate.getFullYear()
+    : new Date().getFullYear();
+  const periodoMonth = fechaCierreDate
+    ? fechaCierreDate.getMonth() + 1
+    : new Date().getMonth() + 1;
+
+  return {
+    taskData: {
+      importId,
+      externalId: row.id || null,
+      contrato: row.contrato || null,
+      grupo: row.grupo || null,
+      documentoId: row.documento_id || null,
+      agenteCampo: row.agente_campo,
+      cedulaUsuario: row.cedula_usuario || null,
+      nombreUsuario: row.nombre_usuario || null,
+      direccion: row.direccion || null,
+      ciudad: row.ciudad || null,
+      departamento: row.departamento || null,
+      latitud: finalLat,
+      longitud: finalLon,
+      tarea: row.tarea || null,
+      fechaCierre: fechaCierreDate,
+      estado: row.estado || null,
+      latitudCierre: row.latitud_cierre ?? null,
+      longitudCierre: row.longitud_cierre ?? null,
+      tipoCierre: row.tipo_cierre || null,
+      tipoBase: row.tipo_base || null,
+      distanciaMetros: burnResult.distanceMeters,
+      esQuemada: burnResult.burned,
+      esAgendado: isAgendado(row.tarea),
+      coordStatus,
+      latitudExtraida: coordStatus === "EXTRACTED" ? finalLat : null,
+      longitudExtraida: coordStatus === "EXTRACTED" ? finalLon : null,
+      periodoYear,
+      periodoMonth,
+      periodoDay: fechaCierreDate ? fechaCierreDate.getDate() : 1,
+      equiposRecuperados,
+    },
+    coordStatus,
+    burned: burnResult.burned,
+  };
+}
+
+// Build equipment data from a row
+function buildEquipoData(row: ReturnType<typeof parseFile>[number]) {
+  return {
+    serial: row.serial || null,
+    serialAdicional: row.serial_adicional || null,
+    tarjetas: row.tarjetas ?? false,
+    controles: row.controles ?? false,
+    fuentes: row.fuentes ?? false,
+    cablePoder: row.cable_poder ?? false,
+    cableFibra: row.cable_fibra ?? false,
+    cableHdmi: row.cable_hdmi ?? false,
+    cablesRca: row.cables_rca ?? false,
+    cablesRj11: row.cables_rj11 ?? false,
+    cablesRj45: row.cables_rj45 ?? false,
+    gestionExitosa: row.gestion_exitosa ?? false,
+  };
+}
+
+async function processImport(
+  importId: string,
+  rows: ReturnType<typeof parseFile>,
+  hasEquipment: boolean
+) {
   let imported = 0;
   let errors = 0;
   let burned = 0;
@@ -122,89 +233,93 @@ async function processImport(importId: string, rows: ReturnType<typeof parseFile
   let missingCoords = 0;
   let duplicates = 0;
 
+  // Group rows by externalId (id) for equipment-level handling
+  type VisitGroup = { externalId: string | undefined; rows: typeof rows };
+  const visitGroups: VisitGroup[] = [];
+
+  const groupMap = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (row.id) {
+      const group = groupMap.get(row.id);
+      if (group) {
+        group.push(row);
+      } else {
+        groupMap.set(row.id, [row]);
+      }
+    } else {
+      // Rows without id are individual visits
+      visitGroups.push({ externalId: undefined, rows: [row] });
+    }
+  }
+  groupMap.forEach((groupRows, extId) => {
+    visitGroups.push({ externalId: extId, rows: groupRows });
+  });
+
+  const totalVisits = visitGroups.length;
   const BATCH_SIZE = 500;
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < totalVisits; i += BATCH_SIZE) {
+    const batch = visitGroups.slice(i, i + BATCH_SIZE);
 
     // Check for existing externalIds to skip duplicates
-    const batchIds = batch.map(r => r.id).filter(Boolean) as string[];
+    const batchIds = batch
+      .map(g => g.externalId)
+      .filter(Boolean) as string[];
     const existingIds = new Set<string>();
     if (batchIds.length > 0) {
       const existing = await prisma.recuperoTask.findMany({
         where: { externalId: { in: batchIds } },
         select: { externalId: true },
       });
-      existing.forEach(e => { if (e.externalId) existingIds.add(e.externalId); });
+      existing.forEach(e => {
+        if (e.externalId) existingIds.add(e.externalId);
+      });
     }
 
-    const records = [];
-
-    for (const row of batch) {
+    for (const group of batch) {
       try {
         // Skip duplicates
-        if (row.id && existingIds.has(row.id)) {
+        if (group.externalId && existingIds.has(group.externalId)) {
           duplicates++;
           continue;
         }
-        const { coordStatus, finalLat, finalLon } = determineCoordStatus(
-          row.latitud,
-          row.longitud,
-          row.direccion
-        );
 
-        if (coordStatus === "OUTSIDE_PERU") outsidePeru++;
-        if (coordStatus === "MISSING") missingCoords++;
+        const firstRow = group.rows[0];
 
-        const successful = isSuccessful(row.tipo_cierre);
-        const burnResult = isBurned(
-          successful,
-          finalLat,
-          finalLon,
-          row.latitud_cierre ?? null,
-          row.longitud_cierre ?? null
-        );
-        if (burnResult.burned) burned++;
+        if (hasEquipment) {
+          // Equipment mode: create task + equipment atomically
+          const equiposExitosos = group.rows.filter(
+            r => r.gestion_exitosa === true
+          ).length;
 
-        const fechaCierreDate = parseDate(row.fecha_cierre);
-        const periodoYear = fechaCierreDate
-          ? fechaCierreDate.getFullYear()
-          : new Date().getFullYear();
-        const periodoMonth = fechaCierreDate
-          ? fechaCierreDate.getMonth() + 1
-          : new Date().getMonth() + 1;
+          const { taskData, coordStatus, burned: isBurnedResult } =
+            buildTaskData(importId, firstRow, equiposExitosos);
 
-        records.push({
-          importId,
-          externalId: row.id || null,
-          contrato: row.contrato || null,
-          grupo: row.grupo || null,
-          documentoId: row.documento_id || null,
-          agenteCampo: row.agente_campo,
-          cedulaUsuario: row.cedula_usuario || null,
-          nombreUsuario: row.nombre_usuario || null,
-          direccion: row.direccion || null,
-          ciudad: row.ciudad || null,
-          departamento: row.departamento || null,
-          latitud: finalLat,
-          longitud: finalLon,
-          tarea: row.tarea || null,
-          fechaCierre: fechaCierreDate,
-          estado: row.estado || null,
-          latitudCierre: row.latitud_cierre ?? null,
-          longitudCierre: row.longitud_cierre ?? null,
-          tipoCierre: row.tipo_cierre || null,
-          tipoBase: row.tipo_base || null,
-          distanciaMetros: burnResult.distanceMeters,
-          esQuemada: burnResult.burned,
-          esAgendado: isAgendado(row.tarea),
-          coordStatus,
-          latitudExtraida: coordStatus === "EXTRACTED" ? finalLat : null,
-          longitudExtraida: coordStatus === "EXTRACTED" ? finalLon : null,
-          periodoYear,
-          periodoMonth,
-          periodoDay: fechaCierreDate ? fechaCierreDate.getDate() : 1,
-        });
+          if (coordStatus === "OUTSIDE_PERU") outsidePeru++;
+          if (coordStatus === "MISSING") missingCoords++;
+          if (isBurnedResult) burned++;
+
+          const equipos = group.rows.map(r => buildEquipoData(r));
+
+          await prisma.$transaction(async (tx) => {
+            const task = await tx.recuperoTask.create({ data: taskData });
+            if (equipos.length > 0) {
+              await tx.recuperoEquipo.createMany({
+                data: equipos.map(eq => ({ ...eq, taskId: task.id })),
+              });
+            }
+          });
+        } else {
+          // Legacy mode: no equipment columns, bulk insert tasks only
+          const { taskData, coordStatus, burned: isBurnedResult } =
+            buildTaskData(importId, firstRow, 0);
+
+          if (coordStatus === "OUTSIDE_PERU") outsidePeru++;
+          if (coordStatus === "MISSING") missingCoords++;
+          if (isBurnedResult) burned++;
+
+          await prisma.recuperoTask.create({ data: taskData });
+        }
 
         imported++;
       } catch {
@@ -212,16 +327,12 @@ async function processImport(importId: string, rows: ReturnType<typeof parseFile
       }
     }
 
-    // Batch insert
-    if (records.length > 0) {
-      await prisma.recuperoTask.createMany({ data: records });
-    }
-
     // Update progress
     const progress = progressMap.get(importId);
     if (progress) {
-      progress.processed = i + batch.length;
-      progress.phase = `Procesando registros... (${Math.min(i + batch.length, rows.length).toLocaleString()} / ${rows.length.toLocaleString()})`;
+      const processed = Math.min(i + batch.length, totalVisits);
+      progress.processed = processed;
+      progress.phase = `Procesando registros... (${processed.toLocaleString()} / ${totalVisits.toLocaleString()})`;
     }
   }
 
@@ -234,12 +345,13 @@ async function processImport(importId: string, rows: ReturnType<typeof parseFile
   // Mark done
   const progress = progressMap.get(importId);
   if (progress) {
-    progress.processed = rows.length;
+    progress.processed = totalVisits;
     progress.phase = "Completado";
     progress.done = true;
     progress.result = {
       importId,
       totalRows: rows.length,
+      totalVisits,
       imported,
       errors,
       burned,
@@ -253,6 +365,6 @@ async function processImport(importId: string, rows: ReturnType<typeof parseFile
   setTimeout(() => progressMap.delete(importId), 5 * 60 * 1000);
 
   console.log(
-    `[RECUPERO IMPORT] ${importId}: ${imported} importados, ${duplicates} duplicados, ${errors} errores, ${burned} quemadas`
+    `[RECUPERO IMPORT] ${importId}: ${imported} importados (${rows.length} filas, ${totalVisits} visitas), ${duplicates} duplicados, ${errors} errores, ${burned} quemadas`
   );
 }

@@ -23,6 +23,8 @@ interface RecuperoStats {
   quemadas: number;
   sinCoords: number;
   fueraDePeru: number;
+  totalEquipos: number;
+  factorDeUso: number;
 }
 
 const MONTHS = [
@@ -345,6 +347,14 @@ export default function RecuperoDashboardPage() {
               {kpiCard("Fuera de Peru", stats.fueraDePeru, "bg-orange-50", pct(stats.fueraDePeru))}
               {kpiCard("Con Coords Válidas", stats.total - stats.sinCoords - stats.fueraDePeru, "bg-blue-50", pct(stats.total - stats.sinCoords - stats.fueraDePeru))}
             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-2">
+              {kpiCard("Equipos Recuperados", stats.totalEquipos ?? 0, "bg-green-50", "Total equipos recuperados")}
+              <div className="rounded-lg border p-4 bg-blue-50">
+                <p className="text-sm font-medium text-gray-600">Factor de Uso</p>
+                <p className="text-2xl font-bold mt-1">{(stats.factorDeUso ?? 0).toFixed(1)} equipo/visita</p>
+                <p className="text-xs text-gray-400 mt-1">Equipos / Exitosas</p>
+              </div>
+            </div>
             <p className="text-[10px] text-gray-400 mb-6">
               Total = Exitosas ({stats.exitosas.toLocaleString()}) + No Exitosas ({stats.noExitosas.toLocaleString()}) = {(stats.exitosas + stats.noExitosas).toLocaleString()}
               {" · "}Quemadas ({stats.quemadas.toLocaleString()}) son un subconjunto de No Exitosas (cierre a {">"} 500m del destino)
@@ -446,7 +456,7 @@ export default function RecuperoDashboardPage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedTasks.map((task) => {
-                  const badge = getStatusBadge(task.estado, task.esQuemada);
+                  const badge = getStatusBadge(task.estado || "", task.esQuemada);
                   return (
                     <tr key={task.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">

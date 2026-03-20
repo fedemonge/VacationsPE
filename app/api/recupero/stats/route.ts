@@ -59,9 +59,20 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Count exitosas: tipoCierre = "RECUPERADO WODEN"
-    const exitosas = await prisma.recuperoTask.count({
-      where: { ...where, tipoCierre: "RECUPERADO WODEN" },
-    });
+    const [exitosas, equiposSumResult] = await Promise.all([
+      prisma.recuperoTask.count({
+        where: { ...where, tipoCierre: "RECUPERADO WODEN" },
+      }),
+      prisma.recuperoTask.aggregate({
+        where,
+        _sum: { equiposRecuperados: true },
+      }),
+    ]);
+
+    const totalEquipos = equiposSumResult._sum.equiposRecuperados ?? 0;
+    const factorDeUso = exitosas > 0
+      ? Math.round((totalEquipos / exitosas) * 10) / 10
+      : 0;
 
     return NextResponse.json({
       total,
@@ -71,6 +82,8 @@ export async function GET(request: NextRequest) {
       sinCoords,
       fueraDePeru,
       agentes: agentesResult.length,
+      totalEquipos,
+      factorDeUso,
     });
   } catch (error) {
     console.error("[RECUPERO STATS] ERROR:", error);

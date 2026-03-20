@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
       kpis,
       trend,
       trendType: trendViewParam,
-      hourly: hourly.map(h => ({ hour: `${h.hour.toString().padStart(2, "0")}:00`, ...h })),
+      hourly: hourly.map(h => ({ ...h, hour: `${h.hour.toString().padStart(2, "0")}:00` })),
       resultados,
     });
   } catch (error) {
