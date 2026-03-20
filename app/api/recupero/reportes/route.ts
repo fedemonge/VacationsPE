@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
           agentStats.map(async (agent) => {
             const agentWhere = { ...where, agenteCampo: agent.agenteCampo };
 
-            const [totalTasks, burnedTasks, exitosas, deptGroup] = await Promise.all([
+            const [totalTasks, burnedTasks, exitosas, deptGroup, equipoSum] = await Promise.all([
               prisma.recuperoTask.count({ where: agentWhere }),
               prisma.recuperoTask.count({
                 where: { ...agentWhere, esQuemada: true },
@@ -108,7 +108,13 @@ export async function GET(request: NextRequest) {
                 orderBy: { _count: { id: "desc" } },
                 take: 1,
               }),
+              prisma.recuperoTask.aggregate({
+                where: agentWhere,
+                _sum: { equiposRecuperados: true },
+              }),
             ]);
+
+            const totalEquipos = equipoSum._sum.equiposRecuperados || 0;
 
             return {
               agenteCampo: agent.agenteCampo,
@@ -117,6 +123,8 @@ export async function GET(request: NextRequest) {
               exitosas,
               noExitosas: totalTasks - exitosas,
               quemadas: burnedTasks,
+              equipos: totalEquipos,
+              factorDeUso: exitosas > 0 ? Math.round((totalEquipos / exitosas) * 10) / 10 : 0,
               tasaExito: totalTasks > 0
                 ? Math.round((exitosas / totalTasks) * 100 * 10) / 10
                 : 0,

@@ -18,10 +18,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "agenteCampo requerido" }, { status: 400 });
     }
 
+    const grupoParam = searchParams.get("grupo");
+    const tipoBaseParam = searchParams.get("tipoBase");
+
     // Build period filter
     const periodWhere: Record<string, unknown> = { periodoYear };
     if (periodoMonth) periodWhere.periodoMonth = periodoMonth;
     if (dayParam) periodWhere.periodoDay = dayParam;
+    if (grupoParam) periodWhere.grupo = { contains: grupoParam };
+    if (tipoBaseParam) periodWhere.tipoBase = tipoBaseParam;
 
     const agentWhere = { ...periodWhere, agenteCampo };
 
@@ -165,17 +170,28 @@ export async function GET(request: NextRequest) {
     }
 
     // === Top results by tipo_cierre ===
-    const tipoCierreBreakdown = await prisma.recuperoTask.groupBy({
-      by: ["tipoCierre"],
-      where: { ...agentWhere, tipoCierre: { not: null } },
-      _count: { id: true },
-      orderBy: { _count: { id: "desc" } },
-    });
+    const [tipoCierreBreakdown, quemadasByTipo] = await Promise.all([
+      prisma.recuperoTask.groupBy({
+        by: ["tipoCierre"],
+        where: { ...agentWhere, tipoCierre: { not: null } },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+      }),
+      prisma.recuperoTask.groupBy({
+        by: ["tipoCierre"],
+        where: { ...agentWhere, tipoCierre: { not: null }, esQuemada: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const quemadasMap = new Map<string, number>();
+    quemadasByTipo.forEach(q => { if (q.tipoCierre) quemadasMap.set(q.tipoCierre, q._count.id); });
 
     const resultados = tipoCierreBreakdown.map(r => ({
       tipoCierre: r.tipoCierre || "Sin resultado",
       count: r._count.id,
       pct: agentTotal > 0 ? Math.round((r._count.id / agentTotal) * 1000) / 10 : 0,
+      quemadas: quemadasMap.get(r.tipoCierre || "") || 0,
     }));
 
     return NextResponse.json({

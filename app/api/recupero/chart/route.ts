@@ -14,11 +14,18 @@ export async function GET(request: NextRequest) {
     const agenteCampo = searchParams.get("agenteCampo") || "";
     const esAgendado = searchParams.get("esAgendado");
 
+    const departamento = searchParams.get("departamento");
+    const tipoBase = searchParams.get("tipoBase");
+    const grupo = searchParams.get("grupo");
+
     // Company-wide base (no agent filter) for the effectiveness line
     const companyWhere: Record<string, unknown> = { periodoYear, periodoMonth };
     if (esAgendado !== null && esAgendado !== undefined && esAgendado !== "") {
       companyWhere.esAgendado = esAgendado === "true";
     }
+    if (departamento) companyWhere.departamento = departamento;
+    if (tipoBase) companyWhere.tipoBase = tipoBase;
+    if (grupo) companyWhere.grupo = { contains: grupo };
 
     // Agent-specific base (includes agent filter if selected)
     const agentWhere: Record<string, unknown> = { ...companyWhere };

@@ -36,7 +36,7 @@ interface ReportData {
   trend: Record<string, unknown>[];
   trendType: "daily" | "monthly";
   hourly: Record<string, unknown>[];
-  resultados: { tipoCierre: string; count: number; pct: number }[];
+  resultados: { tipoCierre: string; count: number; pct: number; quemadas: number }[];
 }
 
 export default function AgentReportPage() {
@@ -48,15 +48,23 @@ export default function AgentReportPage() {
   const [day, setDay] = useState("");
   const [trendView, setTrendView] = useState<"daily" | "monthly">("daily");
   const [selectedAgent, setSelectedAgent] = useState("");
+  const [grupo, setGrupo] = useState("");
+  const [tipoBase, setTipoBase] = useState("");
   const [agentes, setAgentes] = useState<string[]>([]);
+  const [grupos, setGrupos] = useState<string[]>([]);
+  const [tiposBase, setTiposBase] = useState<string[]>([]);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load agent list
+  // Load filter options
   useEffect(() => {
     fetch(`/api/recupero/filters?year=${year}&month=${month || ""}`)
-      .then(r => r.ok ? r.json() : { agentes: [] })
-      .then(d => setAgentes(d.agentes || []))
+      .then(r => r.ok ? r.json() : { agentes: [], grupos: [], tiposBase: [] })
+      .then(d => {
+        setAgentes(d.agentes || []);
+        setGrupos(d.grupos || []);
+        setTiposBase(d.tiposBase || []);
+      })
       .catch(() => {});
   }, [year, month]);
 
@@ -69,6 +77,8 @@ export default function AgentReportPage() {
       params.set("periodoYear", String(year));
       if (month) params.set("periodoMonth", month);
       if (day) params.set("day", day);
+      if (grupo) params.set("grupo", grupo);
+      if (tipoBase) params.set("tipoBase", tipoBase);
       params.set("trendView", trendView);
       const res = await fetch(`/api/recupero/agent-report?${params}`);
       if (res.ok) {
@@ -76,7 +86,7 @@ export default function AgentReportPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [selectedAgent, year, month, day, trendView]);
+  }, [selectedAgent, year, month, day, trendView, grupo, tipoBase]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
 
@@ -169,21 +179,29 @@ export default function AgentReportPage() {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-5 gap-3">
-          <select value={year} onChange={e => setYear(Number(e.target.value))} className="border rounded-md px-3 py-2 text-sm">
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+          <select value={year} onChange={e => setYear(Number(e.target.value))} className="border rounded-md px-2 py-2 text-sm">
             {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <select value={month} onChange={e => setMonth(e.target.value)} className="border rounded-md px-3 py-2 text-sm">
+          <select value={month} onChange={e => setMonth(e.target.value)} className="border rounded-md px-2 py-2 text-sm">
             <option value="">Todo el año</option>
             {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
-          <select value={day} onChange={e => setDay(e.target.value)} className="border rounded-md px-3 py-2 text-sm">
+          <select value={day} onChange={e => setDay(e.target.value)} className="border rounded-md px-2 py-2 text-sm">
             <option value="">Todos los días</option>
             {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} className="border rounded-md px-3 py-2 text-sm">
+          <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} className="border rounded-md px-2 py-2 text-sm">
             <option value="">Seleccionar agente...</option>
             {agentes.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select value={grupo} onChange={e => setGrupo(e.target.value)} className="border rounded-md px-2 py-2 text-sm">
+            <option value="">Grupo: Todos</option>
+            {grupos.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <select value={tipoBase} onChange={e => setTipoBase(e.target.value)} className="border rounded-md px-2 py-2 text-sm">
+            <option value="">Tipo: Todos</option>
+            {tiposBase.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <div className="flex rounded-md overflow-hidden border">
             <button
@@ -294,8 +312,12 @@ export default function AgentReportPage() {
                   <YAxis tick={{ fontSize: 8 }} />
                   <Tooltip contentStyle={{ fontSize: 10 }} />
                   <Legend wrapperStyle={{ fontSize: 9 }} />
-                  <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={10} />
-                  <Bar dataKey="noExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={10} />
+                  <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={10}>
+                    <LabelList dataKey="exitosas" position="center" style={{ fontSize: 6, fill: "#fff", fontWeight: 700 }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Bar>
+                  <Bar dataKey="noExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={10}>
+                    <LabelList dataKey="noExitosas" position="center" style={{ fontSize: 6, fill: "#fff", fontWeight: 700 }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Bar>
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -311,6 +333,7 @@ export default function AgentReportPage() {
                     <td key={r.tipoCierre} className={`px-1.5 py-1 border-r last:border-r-0 ${r.tipoCierre === "RECUPERADO WODEN" ? "bg-green-50" : ""}`}>
                       <p className="text-gray-600 leading-tight whitespace-nowrap">{r.tipoCierre}</p>
                       <p className="font-bold text-gray-900">{r.count} <span className="font-normal text-gray-400">({r.pct}%)</span></p>
+                      {r.quemadas > 0 && <p className="text-[8px] text-gray-500">Quem: <span className="font-bold text-gray-700">{r.quemadas}</span></p>}
                     </td>
                   ))}
                 </tr>
