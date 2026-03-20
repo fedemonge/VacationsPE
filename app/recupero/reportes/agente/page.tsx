@@ -237,11 +237,15 @@ export default function AgentReportPage() {
         <div className="print:p-0" id="agent-report" style={{ maxWidth: "1100px", margin: "0 auto" }}>
           {/* Header */}
           <div className="flex items-center justify-between border-b-2 border-[#EA7704] pb-2 mb-2">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">{report.agenteCampo}</h2>
-              <p className="text-xs text-gray-500">Reporte de Efectividad — {periodLabel}</p>
+            <div className="flex items-center gap-3">
+              <img src="/woden-logo.png" alt="Woden" className="h-8 w-auto" />
+              <div>
+                <h2 className="text-base font-bold text-gray-900">{report.agenteCampo}</h2>
+                <p className="text-xs text-gray-500">Reporte de Efectividad — {periodLabel}</p>
+              </div>
             </div>
             <div className="text-right">
+              <p className="text-[10px] font-bold text-red-600">CONFIDENCIAL</p>
               <p className="text-[10px] text-gray-400">Woden Peru — Recupero</p>
               <p className="text-[10px] text-gray-400">Generado: {new Date().toLocaleDateString("es-PE")}</p>
             </div>
