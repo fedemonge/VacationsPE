@@ -14,6 +14,7 @@ interface BurnedRecord {
   agenteCampo: string;
   tipoBase: string | null;
   grupo: string | null;
+  departamento: string | null;
   distanciaMetros: number | null;
   contrato: string | null;
   fechaCierre: string | null;
@@ -21,6 +22,7 @@ interface BurnedRecord {
 
 interface AgentRecord {
   agenteCampo: string;
+  departamento?: string | null;
   total: number;
   exitosas: number;
   noExitosas: number;
@@ -33,6 +35,7 @@ interface OutsidePeruRecord {
   id: string;
   nombreUsuario: string | null;
   direccion: string | null;
+  departamento: string | null;
   latitud: number | null;
   longitud: number | null;
   agenteCampo: string;
@@ -43,6 +46,7 @@ interface MissingCoordsRecord {
   id: string;
   nombreUsuario: string | null;
   direccion: string | null;
+  departamento: string | null;
   agenteCampo: string;
   estado: string | null;
   tipoBase: string | null;
@@ -79,11 +83,13 @@ export default function RecuperoReportesPage() {
   const [tipoBase, setTipoBase] = useState("");
   const [grupo, setGrupo] = useState("");
   const [esAgendado, setEsAgendado] = useState("");
+  const [departamento, setDepartamento] = useState("");
 
   // Filter options (loaded from data)
   const [agentes, setAgentes] = useState<string[]>([]);
   const [tiposBase, setTiposBase] = useState<string[]>([]);
   const [grupos, setGrupos] = useState<string[]>([]);
+  const [departamentos, setDepartamentos] = useState<string[]>([]);
 
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams();
@@ -94,8 +100,9 @@ export default function RecuperoReportesPage() {
     if (tipoBase) params.set("tipoBase", tipoBase);
     if (grupo) params.set("grupo", grupo);
     if (esAgendado) params.set("esAgendado", esAgendado);
+    if (departamento) params.set("departamento", departamento);
     return params.toString();
-  }, [year, month, day, agente, tipoBase, grupo, esAgendado]);
+  }, [year, month, day, agente, tipoBase, grupo, esAgendado, departamento]);
 
   // Load filter options
   useEffect(() => {
@@ -105,6 +112,7 @@ export default function RecuperoReportesPage() {
         setAgentes(d.agentes || []);
         setTiposBase(d.tiposBase || []);
         setGrupos(d.grupos || []);
+        setDepartamentos(d.departamentos || []);
       })
       .catch(() => {});
   }, [year, month]);
@@ -157,6 +165,7 @@ export default function RecuperoReportesPage() {
         <tr>
           <th className="px-2 py-2 text-left font-medium text-gray-500">Fecha</th>
           <th className="px-2 py-2 text-left font-medium text-gray-500">Agente</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500">Depto</th>
           <th className="px-2 py-2 text-left font-medium text-gray-500">Grupo</th>
           <th className="px-2 py-2 text-left font-medium text-gray-500">Usuario</th>
           <th className="px-2 py-2 text-left font-medium text-gray-500">Tipo</th>
@@ -169,6 +178,7 @@ export default function RecuperoReportesPage() {
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{fmtDate(r.fechaCierre)}</td>
             <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+            <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.grupo || "—"}</td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.nombreUsuario || "—"}</td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.tipoBase || "—"}</td>
@@ -191,6 +201,7 @@ export default function RecuperoReportesPage() {
       <thead className="bg-gray-50">
         <tr>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-500">Depto</th>
           <th className="px-4 py-3 text-right font-medium text-gray-500">Total</th>
           <th className="px-4 py-3 text-right font-medium text-gray-500">Exitosas</th>
           <th className="px-4 py-3 text-right font-medium text-gray-500">No Exitosas</th>
@@ -208,6 +219,7 @@ export default function RecuperoReportesPage() {
           return (
             <tr key={r.agenteCampo} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+              <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
               <td className="px-4 py-3 text-right text-gray-900 font-medium">{total.toLocaleString()}</td>
               <td className="px-4 py-3 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
               <td className="px-4 py-3 text-right text-red-600">{noExitosas.toLocaleString()}</td>
@@ -237,6 +249,7 @@ export default function RecuperoReportesPage() {
       <thead className="bg-gray-50">
         <tr>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Usuario</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-500">Depto</th>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Dirección</th>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
           <th className="px-4 py-3 text-right font-medium text-gray-500">Latitud</th>
@@ -247,6 +260,7 @@ export default function RecuperoReportesPage() {
         {records.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.nombreUsuario}</td>
+            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
             <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{r.direccion}</td>
             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.agenteCampo}</td>
             <td className="px-4 py-3 text-right text-gray-600">{r.latitud?.toFixed(6) ?? "—"}</td>
@@ -262,6 +276,7 @@ export default function RecuperoReportesPage() {
       <thead className="bg-gray-50">
         <tr>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Usuario</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-500">Depto</th>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Dirección</th>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
           <th className="px-4 py-3 text-left font-medium text-gray-500">Estado</th>
@@ -272,6 +287,7 @@ export default function RecuperoReportesPage() {
         {records.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.nombreUsuario}</td>
+            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
             <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{r.direccion}</td>
             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.agenteCampo}</td>
             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.estado}</td>
@@ -288,6 +304,7 @@ export default function RecuperoReportesPage() {
         <thead className="bg-gray-50">
           <tr>
             <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-500">Departamento</th>
             <th className="px-4 py-3 text-right font-medium text-gray-500">Total Asignadas</th>
             <th className="px-4 py-3 text-right font-medium text-gray-500">Efectividad</th>
             <th className="px-4 py-3 text-right font-medium text-gray-500">Exitosas</th>
@@ -305,6 +322,7 @@ export default function RecuperoReportesPage() {
             return (
               <tr key={r.agenteCampo} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{(r as AgentRecord & { departamento?: string }).departamento || "—"}</td>
                 <td className="px-4 py-3 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -404,7 +422,7 @@ export default function RecuperoReportesPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg border p-4 mb-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Año</label>
             <select value={year} onChange={e => setYear(Number(e.target.value))} className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm">
@@ -443,6 +461,13 @@ export default function RecuperoReportesPage() {
             <select value={grupo} onChange={e => setGrupo(e.target.value)} className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm">
               <option value="">Todos</option>
               {grupos.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Departamento</label>
+            <select value={departamento} onChange={e => setDepartamento(e.target.value)} className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+              <option value="">Todos</option>
+              {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
