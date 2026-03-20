@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
       where.esAgendado = esAgendado === "true";
     }
     if (grupo) where.grupo = { contains: grupo };
+    const departamento = searchParams.get("departamento");
+    if (departamento) where.departamento = departamento;
     const tipoCierre = searchParams.get("tipoCierre");
     if (tipoCierre) where.tipoCierre = tipoCierre;
 

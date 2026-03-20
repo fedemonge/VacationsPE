@@ -61,6 +61,7 @@ export default function RecuperoDashboardPage() {
   const [grupo, setGrupo] = useState("");
   const [coordStatus, setCoordStatus] = useState("");
   const [esAgendado, setEsAgendado] = useState("");
+  const [departamento, setDepartamento] = useState("");
   const [day, setDay] = useState("");
 
   const [tasks, setTasks] = useState<RecuperoTask[]>([]);
@@ -75,6 +76,7 @@ export default function RecuperoDashboardPage() {
   const [agentes, setAgentes] = useState<string[]>([]);
   const [tiposBase, setTiposBase] = useState<string[]>([]);
   const [grupos, setGrupos] = useState<string[]>([]);
+  const [departamentos, setDepartamentos] = useState<string[]>([]);
   const [tiposCierre, setTiposCierre] = useState<string[]>([]);
   const [tipoCierre, setTipoCierre] = useState("");
 
@@ -91,10 +93,11 @@ export default function RecuperoDashboardPage() {
     if (grupo) params.set("grupo", grupo);
     if (coordStatus) params.set("coordStatus", coordStatus);
     if (esAgendado) params.set("esAgendado", esAgendado);
+    if (departamento) params.set("departamento", departamento);
     if (tipoCierre) params.set("tipoCierre", tipoCierre);
     if (day) params.set("day", day);
     return params.toString();
-  }, [year, month, day, tipoBase, agente, grupo, coordStatus, esAgendado, tipoCierre]);
+  }, [year, month, day, tipoBase, agente, grupo, coordStatus, esAgendado, departamento, tipoCierre]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -138,6 +141,7 @@ export default function RecuperoDashboardPage() {
         setAgentes(data.agentes || []);
         setTiposBase(data.tiposBase || []);
         setGrupos(data.grupos || []);
+        setDepartamentos(data.departamentos || []);
         setTiposCierre(data.tiposCierre || []);
       }
     } catch { /* ignore */ }
@@ -309,6 +313,19 @@ export default function RecuperoDashboardPage() {
             </select>
           </div>
           <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Departamento</label>
+            <select
+              value={departamento}
+              onChange={(e) => setDepartamento(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-[#EA7704] focus:border-[#EA7704]"
+            >
+              <option value="">Todos</option>
+              {departamentos.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">Agendamiento</label>
             <select
               value={esAgendado}
@@ -412,10 +429,10 @@ export default function RecuperoDashboardPage() {
               <Tooltip />
               <Legend />
               <Bar dataKey="exitosas" name="Exitosas" fill="#22C55E" stackId="stack" barSize={24}>
-                <LabelList dataKey="exitosas" position="inside" style={{ fontSize: 9, fill: "#fff", fontWeight: 600 }} />
+                <LabelList dataKey="exitosas" position="center" style={{ fontSize: 8, fill: "#000", fontWeight: 700 }} formatter={(v: number) => v > 0 ? v : ""} />
               </Bar>
-              <Bar dataKey="noExitosas" name="No Exitosas" fill="#EF4444" stackId="stack" barSize={24}>
-                <LabelList dataKey="noExitosas" position="inside" style={{ fontSize: 9, fill: "#fff", fontWeight: 600 }} />
+              <Bar dataKey="noExitosas" name="No Exit." fill="#EF4444" stackId="stack" barSize={24}>
+                <LabelList dataKey="noExitosas" position="center" style={{ fontSize: 8, fill: "#000", fontWeight: 700 }} formatter={(v: number) => v > 0 ? v : ""} />
               </Bar>
             </ComposedChart>
           </ResponsiveContainer>

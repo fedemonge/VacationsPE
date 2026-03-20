@@ -197,16 +197,18 @@ export default function RecuperoReportesPage() {
   );
 
   const renderAgentsTable = (records: AgentRecord[]) => (
-    <table className="min-w-full divide-y divide-gray-200 text-sm">
+    <table className="min-w-full divide-y divide-gray-200 text-xs">
       <thead className="bg-gray-50">
         <tr>
-          <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
-          <th className="px-4 py-3 text-left font-medium text-gray-500">Depto</th>
-          <th className="px-4 py-3 text-right font-medium text-gray-500">Total</th>
-          <th className="px-4 py-3 text-right font-medium text-gray-500">Exitosas</th>
-          <th className="px-4 py-3 text-right font-medium text-gray-500">No Exitosas</th>
-          <th className="px-4 py-3 text-right font-medium text-gray-500">Quemadas</th>
-          <th className="px-4 py-3 text-right font-medium text-gray-500">% Exito</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500">Agente</th>
+          <th className="px-2 py-2 text-left font-medium text-gray-500">Depto</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">Exit.</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">No Exit.</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">Quem.</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">% Exito</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">Equipos</th>
+          <th className="px-2 py-2 text-right font-medium text-gray-500">F.Uso</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
@@ -216,17 +218,19 @@ export default function RecuperoReportesPage() {
           const noExitosas = r.noExitosas ?? 0;
           const quemadas = r.quemadas ?? 0;
           const tasa = r.tasaExito ?? 0;
+          const equipos = (r as AgentRecord & { equipos?: number }).equipos ?? 0;
+          const factorUso = (r as AgentRecord & { factorDeUso?: number }).factorDeUso ?? 0;
           return (
             <tr key={r.agenteCampo} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
-              <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
-              <td className="px-4 py-3 text-right text-gray-900 font-medium">{total.toLocaleString()}</td>
-              <td className="px-4 py-3 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
-              <td className="px-4 py-3 text-right text-red-600">{noExitosas.toLocaleString()}</td>
-              <td className="px-4 py-3 text-right text-gray-600">{quemadas.toLocaleString()}</td>
-              <td className="px-4 py-3 text-right whitespace-nowrap">
+              <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+              <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+              <td className="px-2 py-1.5 text-right text-gray-900 font-medium">{total.toLocaleString()}</td>
+              <td className="px-2 py-1.5 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
+              <td className="px-2 py-1.5 text-right text-red-600">{noExitosas.toLocaleString()}</td>
+              <td className="px-2 py-1.5 text-right text-gray-600">{quemadas.toLocaleString()}</td>
+              <td className="px-2 py-1.5 text-right whitespace-nowrap">
                 <span
-                  className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                  className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                     tasa >= 70
                       ? "bg-green-100 text-green-800"
                       : tasa >= 40
@@ -237,6 +241,8 @@ export default function RecuperoReportesPage() {
                   {tasa.toFixed(1)}%
                 </span>
               </td>
+              <td className="px-2 py-1.5 text-right text-blue-700 font-medium">{equipos.toLocaleString()}</td>
+              <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{factorUso.toFixed(1)}</td>
             </tr>
           );
         })}
@@ -300,16 +306,18 @@ export default function RecuperoReportesPage() {
 
   const renderEffectivenessTable = (records: AgentRecord[]) => (
     <>
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <table className="min-w-full divide-y divide-gray-200 text-xs">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left font-medium text-gray-500">Agente</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-500">Departamento</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-500">Total Asignadas</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-500">Efectividad</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-500">Exitosas</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-500">No Exitosas *</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-500">Quemadas</th>
+            <th className="px-2 py-2 text-left font-medium text-gray-500">Agente</th>
+            <th className="px-2 py-2 text-left font-medium text-gray-500">Depto</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">Efect.</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">Exit.</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">No Exit.*</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">Quem.</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">Equipos</th>
+            <th className="px-2 py-2 text-right font-medium text-gray-500">F.Uso</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
@@ -319,27 +327,31 @@ export default function RecuperoReportesPage() {
             const quemadas = r.quemadas ?? 0;
             const noExInclQ = total - exitosas;
             const efectividad = total > 0 ? (exitosas / total) * 100 : 0;
+            const equipos = (r as AgentRecord & { equipos?: number }).equipos ?? 0;
+            const factorUso = (r as AgentRecord & { factorDeUso?: number }).factorDeUso ?? 0;
             return (
               <tr key={r.agenteCampo} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
-                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{(r as AgentRecord & { departamento?: string }).departamento || "—"}</td>
-                <td className="px-4 py-3 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+                <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{(r as AgentRecord & { departamento?: string }).departamento || "—"}</td>
+                <td className="px-2 py-1.5 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <div className="w-14 bg-gray-200 rounded-full h-1.5">
                       <div
-                        className={`h-2 rounded-full ${efectividad >= 50 ? "bg-green-500" : efectividad >= 25 ? "bg-yellow-500" : "bg-red-500"}`}
+                        className={`h-1.5 rounded-full ${efectividad >= 50 ? "bg-green-500" : efectividad >= 25 ? "bg-yellow-500" : "bg-red-500"}`}
                         style={{ width: `${Math.min(efectividad, 100)}%` }}
                       />
                     </div>
-                    <span className={`text-sm font-bold ${efectividad >= 50 ? "text-green-700" : efectividad >= 25 ? "text-yellow-700" : "text-red-700"}`}>
+                    <span className={`font-bold ${efectividad >= 50 ? "text-green-700" : efectividad >= 25 ? "text-yellow-700" : "text-red-700"}`}>
                       {efectividad.toFixed(1)}%
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right text-red-600">{noExInclQ.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right text-gray-800 font-medium">{quemadas.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right text-red-600">{noExInclQ.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right text-gray-800 font-medium">{quemadas.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right text-blue-700 font-medium">{equipos.toLocaleString()}</td>
+                <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{factorUso.toFixed(1)}</td>
               </tr>
             );
           })}
