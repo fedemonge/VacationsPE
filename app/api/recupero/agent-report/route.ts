@@ -106,6 +106,12 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
     });
 
+    const agentQuemadasTrend = await prisma.recuperoTask.groupBy({
+      by: [trendGroupBy],
+      where: { ...trendAgentWhere, esQuemada: true },
+      _count: { id: true },
+    });
+
     // Merge into chart data
     const allPeriods = new Set<number>();
     agentTrend.forEach(r => { if (r[trendGroupBy] != null) allPeriods.add(r[trendGroupBy] as number); });
@@ -121,19 +127,22 @@ export async function GET(request: NextRequest) {
 
     const agentTotalMap = toMap(agentTrend);
     const agentExMap = toMap(agentExitosasTrend);
+    const agentQMap = toMap(agentQuemadasTrend);
     const companyTotalMap = toMap(companyTrend);
     const companyExMap = toMap(companyExitosasTrend);
 
     const trend = sortedPeriods.map(p => {
       const aTotal = agentTotalMap.get(p) || 0;
       const aEx = agentExMap.get(p) || 0;
+      const aQ = agentQMap.get(p) || 0;
       const cTotal = companyTotalMap.get(p) || 0;
       const cEx = companyExMap.get(p) || 0;
       return {
         period: p,
         agentTotal: aTotal,
         agentExitosas: aEx,
-        agentNoExitosas: aTotal - aEx,
+        agentNoExitosas: aTotal - aEx - aQ,
+        agentQuemadas: aQ,
         agentEfectividad: aTotal > 0 ? Math.round((aEx / aTotal) * 1000) / 10 : 0,
         companyEfectividad: cTotal > 0 ? Math.round((cEx / cTotal) * 1000) / 10 : 0,
       };

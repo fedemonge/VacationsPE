@@ -73,24 +73,13 @@ export async function POST(request: NextRequest) {
     // Detect if file has equipment data
     const hasEquipment = rows.some(r => r.serial !== undefined);
 
-    // Group rows by externalId (id) for equipment-level handling
-    const grouped = new Map<string, typeof rows>();
-    const ungrouped: typeof rows = [];
+    // Group rows by visit key (contrato + agente + fecha_cierre) to count unique visits
+    const visitKeys = new Set<string>();
     for (const row of rows) {
-      if (row.id) {
-        const group = grouped.get(row.id);
-        if (group) {
-          group.push(row);
-        } else {
-          grouped.set(row.id, [row]);
-        }
-      } else {
-        ungrouped.push(row);
-      }
+      const visitKey = `${row.contrato || ""}|${row.agente_campo || ""}|${row.fecha_cierre || ""}`;
+      visitKeys.add(visitKey);
     }
-
-    // Total visits = unique groups + ungrouped rows
-    const totalVisits = grouped.size + ungrouped.length;
+    const totalVisits = visitKeys.size;
 
     // Create the import record
     const importRecord = await prisma.recuperoImport.create({
@@ -233,26 +222,24 @@ async function processImport(
   let missingCoords = 0;
   let duplicates = 0;
 
-  // Group rows by externalId (id) for equipment-level handling
-  type VisitGroup = { externalId: string | undefined; rows: typeof rows };
+  // Group rows by visit key (contrato + agente + fecha_cierre) to handle
+  // multiple equipment rows per visit. Each unique combination = 1 visit.
+  type VisitGroup = { externalId: string | undefined; visitKey: string; rows: typeof rows };
   const visitGroups: VisitGroup[] = [];
 
-  const groupMap = new Map<string, typeof rows>();
+  const groupMap = new Map<string, { firstId: string | undefined; rows: typeof rows }>();
   for (const row of rows) {
-    if (row.id) {
-      const group = groupMap.get(row.id);
-      if (group) {
-        group.push(row);
-      } else {
-        groupMap.set(row.id, [row]);
-      }
+    // Build visit key from contrato + agente + fecha_cierre
+    const visitKey = `${row.contrato || ""}|${row.agente_campo || ""}|${row.fecha_cierre || ""}`;
+    const existing = groupMap.get(visitKey);
+    if (existing) {
+      existing.rows.push(row);
     } else {
-      // Rows without id are individual visits
-      visitGroups.push({ externalId: undefined, rows: [row] });
+      groupMap.set(visitKey, { firstId: row.id, rows: [row] });
     }
   }
-  groupMap.forEach((groupRows, extId) => {
-    visitGroups.push({ externalId: extId, rows: groupRows });
+  groupMap.forEach((group, visitKey) => {
+    visitGroups.push({ externalId: group.firstId, visitKey, rows: group.rows });
   });
 
   const totalVisits = visitGroups.length;

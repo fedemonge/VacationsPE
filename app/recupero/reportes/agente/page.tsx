@@ -230,20 +230,22 @@ export default function AgentReportPage() {
           </div>
 
           {/* KPI Grid + Summary in one row */}
-          <div className="grid grid-cols-9 gap-1.5 mb-2">
+          <div className="grid grid-cols-5 gap-1.5 mb-2">
             {/* 4 KPI comparison cards */}
-            <div className="col-span-2">{kpiCompare("Total Gestiones", report.kpis.agent.total, report.kpis.company.avgPerAgent || 0)}</div>
-            <div className="col-span-2">{kpiCompare("Efectividad", report.kpis.agent.efectividad, report.kpis.company.efectividad, "pct")}</div>
-            <div className="col-span-2">{kpiCompare("Exitosas", report.kpis.agent.exitosas, Math.round((report.kpis.company.exitosas) / (report.kpis.company.numAgents || 1)))}</div>
-            <div className="col-span-2">{kpiCompare("Tasa Quemadas", report.kpis.agent.tasaQuemadas, report.kpis.company.tasaQuemadas, "pct")}</div>
+            <div>{kpiCompare("Total Gestiones", report.kpis.agent.total, report.kpis.company.avgPerAgent || 0)}</div>
+            <div>{kpiCompare("Efectividad", report.kpis.agent.efectividad, report.kpis.company.efectividad, "pct")}</div>
+            <div>{kpiCompare("Exitosas", report.kpis.agent.exitosas, Math.round((report.kpis.company.exitosas) / (report.kpis.company.numAgents || 1)))}</div>
+            <div>{kpiCompare("Tasa Quemadas", report.kpis.agent.tasaQuemadas, report.kpis.company.tasaQuemadas, "pct")}</div>
             {/* Summary column */}
-            <div className="border rounded-lg p-2 bg-gray-50 flex flex-col justify-center text-center text-[10px]">
-              <p className="font-bold text-sm text-gray-900">{report.kpis.agent.total}</p>
-              <p className="text-gray-400">Total</p>
-              <div className="flex justify-center gap-2 mt-1">
-                <span className="text-green-700 font-bold">{report.kpis.agent.exitosas}</span>
-                <span className="text-red-600 font-bold">{report.kpis.agent.noExitosas}</span>
-                <span className="text-gray-600 font-bold">{report.kpis.agent.quemadas}q</span>
+            <div className="border rounded-lg p-2 bg-gray-50 flex flex-col justify-center text-[10px]">
+              <div className="text-center mb-1">
+                <span className="font-bold text-sm text-gray-900">{report.kpis.agent.total}</span>
+                <span className="text-gray-400 ml-1">Total</span>
+              </div>
+              <div className="flex flex-col gap-0.5 text-left">
+                <div className="flex justify-between px-1"><span className="text-gray-500">Exitosas</span><span className="text-green-700 font-bold">{report.kpis.agent.exitosas}</span></div>
+                <div className="flex justify-between px-1"><span className="text-gray-500">No Exit.</span><span className="text-red-600 font-bold">{report.kpis.agent.noExitosas}</span></div>
+                <div className="flex justify-between px-1"><span className="text-gray-500">Quemadas</span><span className="text-gray-600 font-bold">{report.kpis.agent.quemadas}</span></div>
               </div>
             </div>
           </div>
@@ -263,8 +265,15 @@ export default function AgentReportPage() {
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 8 }} />
                   <Tooltip contentStyle={{ fontSize: 10 }} />
                   <Legend wrapperStyle={{ fontSize: 9 }} />
-                  <Bar yAxisId="right" dataKey="agentExitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={10} />
-                  <Bar yAxisId="right" dataKey="agentNoExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={10} />
+                  <Bar yAxisId="right" dataKey="agentExitosas" name="Exitosas" fill="#22C55E" stackId="s" barSize={12}>
+                    <LabelList dataKey="agentExitosas" position="center" style={{ fontSize: 7, fill: "#fff", fontWeight: 700 }} />
+                  </Bar>
+                  <Bar yAxisId="right" dataKey="agentNoExitosas" name="No Exit." fill="#EF4444" stackId="s" barSize={12}>
+                    <LabelList dataKey="agentNoExitosas" position="center" style={{ fontSize: 7, fill: "#fff", fontWeight: 700 }} />
+                  </Bar>
+                  <Bar yAxisId="right" dataKey="agentQuemadas" name="Quemadas" fill="#1F2937" stackId="s" barSize={12}>
+                    <LabelList dataKey="agentQuemadas" position="center" style={{ fontSize: 7, fill: "#fff", fontWeight: 700 }} formatter={(v: number) => v > 0 ? v : ""} />
+                  </Bar>
                   <Line yAxisId="left" type="monotone" dataKey="companyEfectividad" name="Cía %" stroke="#EA7704" strokeWidth={2} dot={{ r: 1.5 }}>
                     <LabelList dataKey="companyEfectividad" position="top" style={{ fontSize: 7, fill: "#000", fontWeight: 700 }} formatter={(v: number) => `${v}%`} />
                   </Line>
