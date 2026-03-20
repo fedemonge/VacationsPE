@@ -81,10 +81,25 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Recupero",
-    items: [
-      { href: "/recupero", label: "Mapa de Operaciones" },
-      { href: "/recupero/reportes", label: "Reportes" },
-      { href: "/recupero/importar", label: "Importar Datos" },
+    megaMenu: true,
+    sections: [
+      {
+        heading: "Servicios de Campo",
+        items: [
+          { href: "/recupero", label: "Mapa de Operaciones" },
+          { href: "/recupero/reportes", label: "Reportes" },
+          { href: "/recupero/importar", label: "Importar Datos" },
+        ],
+      },
+      {
+        heading: "Contact Center",
+        items: [
+          { href: "/recupero/calidad-datos", label: "Calidad de Datos" },
+          { href: "/recupero/calidad-datos/importar", label: "Importar Base Clientes" },
+          { href: "/recupero/calidad-datos/dashboard", label: "Dashboard Interno" },
+          { href: "/recupero/calidad-datos/reporte", label: "Reporte Cliente" },
+        ],
+      },
     ],
   },
   {
@@ -168,8 +183,12 @@ function MegaMenuDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-sm shadow-lg border border-gray-200 py-4 z-50 w-[580px]">
-          <div className="grid grid-cols-4 gap-0 divide-x divide-gray-100">
+        <div className={`absolute top-full left-0 mt-1 bg-white rounded-sm shadow-lg border border-gray-200 py-4 z-50 ${
+          visibleSections.length <= 2 ? 'w-[360px]' : 'w-[580px]'
+        }`}>
+          <div className={`grid gap-0 divide-x divide-gray-100 ${
+            visibleSections.length <= 2 ? 'grid-cols-2' : 'grid-cols-4'
+          }`}>
             {visibleSections.map((section) => (
               <div key={section.heading} className="px-4">
                 <p className="text-xs font-semibold text-woden-primary uppercase tracking-wide mb-2">

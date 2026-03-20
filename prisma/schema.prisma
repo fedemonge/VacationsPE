@@ -713,3 +713,78 @@ model RecuperoTask {
   @@index([coordStatus])
   @@index([tipoCierre])
 }
+
+// ==========================================
+// Client Data Quality (Claro / DirecTV)
+// ==========================================
+
+model ClientDataImport {
+  id              String   @id @default(uuid())
+  source          String   // "CLARO" | "DIRECTV"
+  fileName        String
+  receptionDate   DateTime // defaults to upload date, user can override
+  uploadDate      DateTime @default(now())
+  totalRows       Int      @default(0)
+  validPhoneRows  Int      @default(0)
+  incompletePhoneRows Int  @default(0)
+  invalidPhoneRows Int     @default(0)
+  missingPhoneRows Int     @default(0)
+  validCoordsRows Int      @default(0)
+  coordsInPeruRows Int     @default(0)
+  coordsOutsidePeruRows Int @default(0)
+  validAddressRows Int     @default(0)
+  extractedCoordsRows Int  @default(0)
+  importedByEmail String?
+  records         ClientDataRecord[]
+}
+
+model ClientDataRecord {
+  id             String  @id @default(uuid())
+  importId       String
+  rowNumber      Int
+
+  // Normalized fields
+  externalId     String? // idagenda (Claro) or NroWO (DirecTV)
+  customerId     String? // codcli (Claro) or NroCliente (DirecTV)
+  customerName   String? // nomcli (Claro) or ApellidoNombre (DirecTV)
+  address        String? // direccion (Claro) or DireccionIns (DirecTV)
+  district       String? // distrito (Claro) or LocalidadIns (DirecTV)
+  province       String? // nomprov/nomdepa (Claro) or ProvinciaIns (DirecTV)
+  department     String? // nomdepa (Claro) or CiudadIns (DirecTV)
+  workOrderType  String? // tipo (Claro) or WOType (DirecTV)
+  status         String? // estado (Claro) or EstadoWO (DirecTV)
+
+  // Phone fields
+  phone1         String?
+  phone2         String?
+
+  // Coordinates
+  latitude       Float?
+  longitude      Float?
+  coordsSource   String  @default("MISSING") // DIRECT | EXTRACTED_ADDRESS | EXTRACTED_OTHER | MISSING
+
+  // Equipment
+  equipmentType  String? // equ_sot/prod_pri (Claro) or IRD/MODEM (DirecTV)
+  equipmentModel String? // from Claro workflow or DirecTV Modelo
+  serialNumber   String? // from DirecTV Nro. Serie
+  technology     String? // FTTH/HFC (Claro) or from DirecTV
+
+  // Quality flags
+  hasValidPhone   Boolean @default(false)
+  phoneStatus     String  @default("MISSING") // VALID | INCOMPLETE | INVALID | MISSING
+  hasValidCoords  Boolean @default(false)
+  coordsInPeru    Boolean @default(false) // coords within Peru boundaries
+  coordsOutsidePeru Boolean @default(false) // has coords but outside Peru
+  hasValidAddress Boolean @default(false)
+  coordsExtracted Boolean @default(false) // coords were found embedded in text
+
+  // Raw data
+  rawData        String  @default("{}")
+
+  import ClientDataImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([hasValidPhone])
+  @@index([hasValidCoords])
+  @@index([hasValidAddress])
+}
