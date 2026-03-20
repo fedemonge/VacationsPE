@@ -306,32 +306,35 @@ Todos autenticados via header `x-webhook-secret`.
 
 ## Módulo Recupero
 
-Control de gestiones de campo para recuperación de equipos de telecomunicaciones (Claro, DirecTV, Mi Fibra).
+Control de gestiones de campo para recuperación de equipos de telecomunicaciones (Claro, DirecTV, Mi Fibra) en Perú.
 
 ### Arquitectura
 
 ```
 Páginas:
-  /recupero              — Dashboard: KPIs, gráfico efectividad, mapa Leaflet, tabla paginada
-  /recupero/importar     — Carga manual (.txt/.xlsx), purga, eliminación individual, historial
-  /recupero/reportes     — Reportes tabulares: Efectividad, Quemadas, Agentes, Fuera de Perú, Sin Coords
+  /recupero                    — Dashboard: KPIs, gráfico efectividad, mapa Leaflet, tabla paginada
+  /recupero/importar           — Carga manual (.xlsx/.txt), purga, eliminación individual, historial
+  /recupero/reportes           — Reportes: Efectividad, Quemadas, Agentes, Fuera de Perú, Sin Coords
+  /recupero/reportes/agente    — Reporte individual por agente (one-pager con PDF/print export)
 
 API Routes:
-  GET  /api/recupero              — Tareas paginadas con filtros
-  GET  /api/recupero/stats        — KPIs agregados
-  GET  /api/recupero/filters      — Valores únicos para dropdowns
-  GET  /api/recupero/chart        — Datos diarios para gráfico efectividad
-  GET  /api/recupero/reportes     — Reportes (effectiveness, burned, agents, outside-peru, missing-coords)
-  POST /api/recupero/importar     — Carga con progress tracking, deduplicación por externalId
-  GET  /api/recupero/importar     — Historial de importaciones / polling de progreso
-  DEL  /api/recupero/importar/[id] — Eliminar importación individual (admin)
-  POST /api/recupero/purge        — Purgar todos los datos (admin)
-  POST /api/recupero/webhook      — Import via webhook (n8n / SharePoint)
+  GET  /api/recupero                — Tareas paginadas con filtros
+  GET  /api/recupero/stats          — KPIs agregados
+  GET  /api/recupero/filters        — Valores únicos para dropdowns
+  GET  /api/recupero/chart          — Datos diarios para gráfico Efectividad Diaria (stacked bars + effectiveness lines)
+  GET  /api/recupero/chart-hourly   — Datos para gráfico Distribución Horaria
+  GET  /api/recupero/reportes       — Reportes (effectiveness, burned, agents, outside-peru, missing-coords)
+  GET  /api/recupero/agent-report   — Datos para reporte individual de agente
+  POST /api/recupero/importar       — Carga con progress tracking, deduplicación por externalId
+  GET  /api/recupero/importar       — Historial de importaciones / polling de progreso
+  DEL  /api/recupero/importar/[id]  — Eliminar importación individual (admin)
+  POST /api/recupero/purge          — Purgar todos los datos (admin)
+  POST /api/recupero/webhook        — Import via webhook (n8n / SharePoint)
 
 Librerías:
   lib/recupero/types.ts   — isSuccessful(), isAgendado(), interfaces
   lib/recupero/geo.ts     — determineCoordStatus(), isBurned(), haversineDistance(), isInsidePeru()
-  lib/recupero/parser.ts  — parseFile() (detecta delimitador ¬ / tab / comma), parseDate()
+  lib/recupero/parser.ts  — parseFile() (auto-detección de delimitador: tab, ¬, ~, |, ;, ,), parseDate()
 
 Componentes:
   components/recupero/RecuperoMap.tsx — Mapa Leaflet con pins estilo Google Maps (4 capas)
@@ -340,7 +343,37 @@ Componentes:
 ### Modelos Prisma
 
 - **RecuperoImport** — registro de cada carga (fileName, source, totalRows, importedRows, errorRows)
-- **RecuperoTask** — cada gestión de campo con coords, estado, tipo cierre, distancia, flags
+- **RecuperoTask** — nivel de visita. Rows agrupadas por contrato + agente_campo + fecha_cierre
+- **RecuperoEquipo** — nivel de equipo. Cada equipo recuperado vinculado a un RecuperoTask
+
+### Agrupación de Visitas
+
+Las filas del archivo fuente se agrupan en visitas por la combinación de `contrato + agente_campo + fecha_cierre`. Una visita (RecuperoTask) puede tener múltiples equipos (RecuperoEquipo).
+
+### Modelo RecuperoEquipo (campos clave)
+
+| Campo | Descripción |
+|-------|-------------|
+| serial | Serial del equipo |
+| serial_adicional | Serial adicional (si aplica) |
+| tarjetas | Cantidad de tarjetas |
+| controles | Cantidad de controles remotos |
+| fuentes | Cantidad de fuentes de poder |
+| cables (poder, fibra, hdmi, rca, rj11, rj45) | Accesorios por tipo |
+| gestion_exitosa | Si la gestión de este equipo fue exitosa |
+
+### KPIs
+
+| KPI | Descripción |
+|-----|-------------|
+| Total Gestiones | Total de visitas |
+| Exitosas | Visitas con tipoCierre = "RECUPERADO WODEN" |
+| No Exitosas | Visitas con otro tipoCierre |
+| Quemadas | No exitosas + distancia haversine > 500m del punto de visita |
+| Factor de Uso | Equipos recuperados / visitas exitosas |
+| Equipos Recuperados | Total de equipos con gestion_exitosa |
+| Sin Coords | Visitas sin coordenadas de cierre |
+| Fuera de Perú | Visitas con coordenadas fuera del bounding box de Perú |
 
 ### Lógica de Negocio
 
@@ -348,13 +381,13 @@ Componentes:
 |----------|-------|
 | Exitosa | `tipoCierre === "RECUPERADO WODEN"` |
 | No Exitosa | Cualquier otro `tipoCierre` |
-| Quemada | No exitosa + cierre a > 500m del punto de visita |
+| Quemada | No exitosa + haversine distance > 500m del punto de visita |
 | Agendado | `tarea` NO empieza con "VISITA" |
 | No Agendado | `tarea` empieza con "VISITA" |
 | Dentro de Perú | lat -18.35 a -0.04, lon -81.33 a -68.65 |
 | Coords extraídas | Regex busca "(COORDENADAS: lat, lon)" en campo dirección |
 
-### Pins del Mapa (4 capas toggleables)
+### Pins del Mapa (4 capas toggleables — Leaflet)
 
 | Capa | Color | Coords usadas |
 |------|-------|---------------|
@@ -363,17 +396,40 @@ Componentes:
 | No Exitosas | Rojo | latitudCierre/longitudCierre |
 | Quemadas | Negro | latitudCierre/longitudCierre |
 
-### Formato del Archivo TXT
+### Reportes
 
-- Delimitador: `¬` (not sign)
+| Reporte | Descripción |
+|---------|-------------|
+| Efectividad | Tabla con columnas de equipos (tarjetas, controles, fuentes, cables) |
+| Quemadas | Visitas quemadas con distancia al destino |
+| Agentes | Resumen por agente de campo |
+| Fuera de Perú | Visitas con coords fuera del bounding box |
+| Sin Coordenadas | Visitas sin coords de cierre |
+| Agente (one-pager) | Reporte individual por agente con PDF/print export |
+
+### Gráficos
+
+| Gráfico | Descripción |
+|---------|-------------|
+| Efectividad Diaria | Barras apiladas (exitosas/no exitosas) + líneas de efectividad. Toggle diario/mensual |
+| Distribución Horaria | Distribución de gestiones por hora del día con data labels |
+
+### Formato del Archivo de Importación
+
+- Formatos soportados: `.xlsx` y `.txt`
+- Auto-detección de delimitador para TXT: tab, `¬`, `~`, `|`, `;`, `,`
 - 19 columnas: id, contrato, grupo, documento_id, agente_campo, cedula_usuario, nombre_usuario, direccion, ciudad, departamento, latitud, longitud, tarea, fecha_cierre, estado, latitud_cierre, longitud_cierre, tipo_cierre, tipo_base
 - Coordenadas con "NaN" = no disponibles
 - Algunas coords vienen embebidas en campo dirección como "(COORDENADAS: lat, lon)"
 
 ### Filtros Disponibles
 
-Año, Mes, Día, Tipo Base, Agente, Grupo, Coordenadas, Resultado (tipoCierre), Agendamiento
+Año, Mes, Día, Agente, Grupo, Tipo Base, Departamento, Coordenadas, Resultado (tipoCierre), Agendamiento
 
 ### Deduplicación
 
-Al importar, se verifica por `externalId` (columna `id` del archivo). Registros con externalId ya existente se omiten.
+Al importar, se verifica por `externalId`. Para visitas agrupadas (múltiples filas por contrato + agente + fecha_cierre), se usa el ID de la primera fila del grupo como externalId. Registros con externalId ya existente se omiten.
+
+### Permisos
+
+Acceso al módulo Recupero restringido a: `ADMINISTRADOR`, `GERENTE_PAIS`, `RRHH`, `OFICIAL_SEGURIDAD`.
