@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
         const effDetails = await Promise.all(
           effStats.map(async (agent) => {
             const agentWhere = { ...where, agenteCampo: agent.agenteCampo };
-            const [totalTasks, burnedTasks, exitosas, deptGroup] = await Promise.all([
+            const [totalTasks, burnedTasks, exitosas, deptGroup, equipoSum] = await Promise.all([
               prisma.recuperoTask.count({ where: agentWhere }),
               prisma.recuperoTask.count({ where: { ...agentWhere, esQuemada: true } }),
               prisma.recuperoTask.count({ where: { ...agentWhere, tipoCierre: "RECUPERADO WODEN" } }),
@@ -158,7 +158,12 @@ export async function GET(request: NextRequest) {
                 orderBy: { _count: { id: "desc" } },
                 take: 1,
               }),
+              prisma.recuperoTask.aggregate({
+                where: agentWhere,
+                _sum: { equiposRecuperados: true },
+              }),
             ]);
+            const equipos = equipoSum._sum.equiposRecuperados ?? 0;
             return {
               agenteCampo: agent.agenteCampo,
               departamento: deptGroup.length > 0 ? deptGroup[0].departamento : null,
@@ -167,6 +172,8 @@ export async function GET(request: NextRequest) {
               noExitosas: totalTasks - exitosas,
               quemadas: burnedTasks,
               tasaExito: totalTasks > 0 ? Math.round((exitosas / totalTasks) * 1000) / 10 : 0,
+              equipos,
+              factorDeUso: exitosas > 0 ? Math.round((equipos / exitosas) * 10) / 10 : 0,
             };
           })
         );

@@ -699,9 +699,11 @@ model RecuperoTask {
   periodoYear       Int
   periodoMonth      Int
   periodoDay        Int       @default(1)
+  equiposRecuperados Int      @default(0)
   createdAt         DateTime  @default(now())
 
-  import RecuperoImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  import  RecuperoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
+  equipos RecuperoEquipo[]
 
   @@index([importId])
   @@index([agenteCampo])
@@ -712,6 +714,28 @@ model RecuperoTask {
   @@index([esAgendado])
   @@index([coordStatus])
   @@index([tipoCierre])
+}
+
+model RecuperoEquipo {
+  id              String       @id @default(uuid())
+  taskId          String
+  serial          String?
+  serialAdicional String?
+  tarjetas        Boolean      @default(false)
+  controles       Boolean      @default(false)
+  fuentes         Boolean      @default(false)
+  cablePoder      Boolean      @default(false)
+  cableFibra      Boolean      @default(false)
+  cableHdmi       Boolean      @default(false)
+  cablesRca       Boolean      @default(false)
+  cablesRj11      Boolean      @default(false)
+  cablesRj45      Boolean      @default(false)
+  gestionExitosa  Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  task RecuperoTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
 }
 
 // ==========================================

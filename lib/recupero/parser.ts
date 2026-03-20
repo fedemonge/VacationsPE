@@ -94,6 +94,19 @@ const COLUMN_PATTERNS: Record<string, string[]> = {
   longitud_cierre: ["longitud_cierre", "Longitud_cierre", "LONGITUD_CIERRE", "longitudCierre", "lon_cierre", "lng_cierre", "long_cierre"],
   tipo_cierre: ["tipo_cierre", "Tipo_cierre", "TIPO_CIERRE", "tipoCierre", "resultado_visita", "outcome"],
   tipo_base: ["tipo_base", "Tipo_base", "TIPO_BASE", "tipoBase", "base_type"],
+  // Equipment columns
+  serial: ["serial", "Serial", "SERIAL"],
+  serial_adicional: ["serial_adicional", "Serial_adicional", "SERIAL_ADICIONAL", "serialAdicional"],
+  tarjetas: ["tarjetas", "Tarjetas", "TARJETAS"],
+  controles: ["controles", "Controles", "CONTROLES"],
+  fuentes: ["fuentes", "Fuentes", "FUENTES"],
+  cable_poder: ["cable_poder", "Cable_poder", "CABLE_PODER", "cablePoder"],
+  cable_fibra: ["cable_fibra", "Cable_fibra", "CABLE_FIBRA", "cableFibra"],
+  cable_hdmi: ["cable_hdmi", "Cable_hdmi", "CABLE_HDMI", "cableHdmi"],
+  cables_rca: ["cables_rca", "Cables_rca", "CABLES_RCA", "cablesRca"],
+  cables_rj11: ["cables_rj11", "Cables_rj11", "CABLES_RJ11", "cablesRj11"],
+  cables_rj45: ["cables_rj45", "Cables_rj45", "CABLES_RJ45", "cablesRj45"],
+  gestion_exitosa: ["gestion_exitosa", "Gestion_exitosa", "GESTION_EXITOSA", "gestionExitosa"],
 };
 
 /**
@@ -168,6 +181,13 @@ function mapRow(raw: Record<string, unknown>, headers: string[]): RecuperoTaskRo
     return isFinite(n) ? n : null;
   };
 
+  const getBool = (field: string): boolean => {
+    const v = get(field);
+    if (!v) return false;
+    const upper = v.toUpperCase();
+    return upper === "SI" || upper === "SÍ" || upper === "YES" || upper === "1" || upper === "TRUE";
+  };
+
   const agente = get("agente_campo");
   if (!agente && !get("id") && !get("contrato")) {
     return null; // Skip empty rows
@@ -193,6 +213,19 @@ function mapRow(raw: Record<string, unknown>, headers: string[]): RecuperoTaskRo
     longitud_cierre: getNum("longitud_cierre"),
     tipo_cierre: get("tipo_cierre"),
     tipo_base: get("tipo_base"),
+    // Equipment fields
+    serial: get("serial"),
+    serial_adicional: get("serial_adicional"),
+    tarjetas: getBool("tarjetas"),
+    controles: getBool("controles"),
+    fuentes: getBool("fuentes"),
+    cable_poder: getBool("cable_poder"),
+    cable_fibra: getBool("cable_fibra"),
+    cable_hdmi: getBool("cable_hdmi"),
+    cables_rca: getBool("cables_rca"),
+    cables_rj11: getBool("cables_rj11"),
+    cables_rj45: getBool("cables_rj45"),
+    gestion_exitosa: getBool("gestion_exitosa"),
   };
 }
 

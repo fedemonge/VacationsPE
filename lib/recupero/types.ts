@@ -18,6 +18,19 @@ export interface RecuperoTaskRow {
   longitud_cierre?: number | null;
   tipo_cierre?: string;
   tipo_base?: string;
+  // Equipment fields
+  serial?: string;
+  serial_adicional?: string;
+  tarjetas?: boolean;
+  controles?: boolean;
+  fuentes?: boolean;
+  cable_poder?: boolean;
+  cable_fibra?: boolean;
+  cable_hdmi?: boolean;
+  cables_rca?: boolean;
+  cables_rj11?: boolean;
+  cables_rj45?: boolean;
+  gestion_exitosa?: boolean;
 }
 
 export type CoordStatus = "VALID" | "OUTSIDE_PERU" | "MISSING" | "EXTRACTED";
@@ -46,6 +59,8 @@ export interface RecuperoStats {
   sinCoords: number;
   fueraDePeru: number;
   agentes: number;
+  totalEquipos: number;
+  factorDeUso: number;
 }
 
 export interface ImportResult {
