@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (year) where.periodoYear = year;
   if (month) where.periodoMonth = month;
 
-  const [agentesRaw, tiposRaw, gruposRaw, tiposCierreRaw] = await Promise.all([
+  const [agentesRaw, tiposRaw, gruposRaw, tiposCierreRaw, departamentosRaw] = await Promise.all([
     prisma.recuperoTask.groupBy({
       by: ["agenteCampo"],
       where,
@@ -37,6 +37,11 @@ export async function GET(req: NextRequest) {
       where: { ...where, tipoCierre: { not: null } },
       orderBy: { tipoCierre: "asc" },
     }),
+    prisma.recuperoTask.groupBy({
+      by: ["departamento"],
+      where: { ...where, departamento: { not: null } },
+      orderBy: { departamento: "asc" },
+    }),
   ]);
 
   return NextResponse.json({
@@ -44,6 +49,7 @@ export async function GET(req: NextRequest) {
     tiposBase: tiposRaw.map((t) => t.tipoBase).filter(Boolean),
     grupos: gruposRaw.map((g) => g.grupo).filter(Boolean),
     tiposCierre: tiposCierreRaw.map((t) => t.tipoCierre).filter(Boolean),
+    departamentos: departamentosRaw.map((d) => d.departamento).filter(Boolean),
     hasAgendado: true,
   });
 }

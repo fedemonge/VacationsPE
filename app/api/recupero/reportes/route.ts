@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
       where.esAgendado = esAgendado === "true";
     }
     if (grupo) where.grupo = { contains: grupo };
+    const departamento = searchParams.get("departamento");
+    if (departamento) where.departamento = departamento;
 
     switch (type) {
       case "burned": {
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
             fechaCierre: true,
             tipoBase: true,
             grupo: true,
+            departamento: true,
           },
         });
 
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest) {
           agentStats.map(async (agent) => {
             const agentWhere = { ...where, agenteCampo: agent.agenteCampo };
 
-            const [totalTasks, burnedTasks, exitosas] = await Promise.all([
+            const [totalTasks, burnedTasks, exitosas, deptGroup] = await Promise.all([
               prisma.recuperoTask.count({ where: agentWhere }),
               prisma.recuperoTask.count({
                 where: { ...agentWhere, esQuemada: true },
@@ -98,10 +101,18 @@ export async function GET(request: NextRequest) {
               prisma.recuperoTask.count({
                 where: { ...agentWhere, tipoCierre: "RECUPERADO WODEN" },
               }),
+              prisma.recuperoTask.groupBy({
+                by: ["departamento"],
+                where: { ...agentWhere, departamento: { not: null } },
+                _count: { id: true },
+                orderBy: { _count: { id: "desc" } },
+                take: 1,
+              }),
             ]);
 
             return {
               agenteCampo: agent.agenteCampo,
+              departamento: deptGroup.length > 0 ? deptGroup[0].departamento : null,
               total: totalTasks,
               exitosas,
               noExitosas: totalTasks - exitosas,
@@ -127,7 +138,6 @@ export async function GET(request: NextRequest) {
       }
 
       case "effectiveness": {
-        // Reuse agents logic but sort by effectiveness
         const effStats = await prisma.recuperoTask.groupBy({
           by: ["agenteCampo"],
           where,
@@ -137,13 +147,21 @@ export async function GET(request: NextRequest) {
         const effDetails = await Promise.all(
           effStats.map(async (agent) => {
             const agentWhere = { ...where, agenteCampo: agent.agenteCampo };
-            const [totalTasks, burnedTasks, exitosas] = await Promise.all([
+            const [totalTasks, burnedTasks, exitosas, deptGroup] = await Promise.all([
               prisma.recuperoTask.count({ where: agentWhere }),
               prisma.recuperoTask.count({ where: { ...agentWhere, esQuemada: true } }),
               prisma.recuperoTask.count({ where: { ...agentWhere, tipoCierre: "RECUPERADO WODEN" } }),
+              prisma.recuperoTask.groupBy({
+                by: ["departamento"],
+                where: { ...agentWhere, departamento: { not: null } },
+                _count: { id: true },
+                orderBy: { _count: { id: "desc" } },
+                take: 1,
+              }),
             ]);
             return {
               agenteCampo: agent.agenteCampo,
+              departamento: deptGroup.length > 0 ? deptGroup[0].departamento : null,
               total: totalTasks,
               exitosas,
               noExitosas: totalTasks - exitosas,
