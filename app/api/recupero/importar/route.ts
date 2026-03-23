@@ -60,8 +60,9 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Phase 1: Parse
-    const rows = parseFile(buffer, file.name);
+    // Phase 1: Parse — use filename from File object, fallback to "upload.txt" if null
+    const fileName = file.name || "upload.txt";
+    const rows = parseFile(buffer, fileName);
 
     if (rows.length === 0) {
       return NextResponse.json(
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     // Create the import record
     const importRecord = await prisma.recuperoImport.create({
       data: {
-        fileName: file.name,
+        fileName,
         source: "MANUAL",
         totalRows: rows.length,
         importedByEmail: session.email,
