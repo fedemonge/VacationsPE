@@ -126,6 +126,11 @@ export default function RecuperoImportarPage() {
         body: formData,
       });
 
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Error del servidor (${res.status}). Intente cerrar sesión y volver a entrar.`);
+      }
+
       const data = await res.json();
 
       if (!res.ok) {
