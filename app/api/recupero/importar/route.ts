@@ -5,6 +5,10 @@ import { parseFile, parseDate } from "@/lib/recupero/parser";
 import { determineCoordStatus, isBurned } from "@/lib/recupero/geo";
 import { isSuccessful, isAgendado } from "@/lib/recupero/types";
 
+// Allow large file uploads (up to 100MB)
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 // In-memory progress tracking (per importId)
 const progressMap = new Map<
   string,
