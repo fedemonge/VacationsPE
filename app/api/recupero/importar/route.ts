@@ -136,6 +136,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Fields added after initial deployment that may not exist in stale Prisma Clients
+const NEWER_FIELDS = ["equiposRecuperados"];
+
+function stripNewFields(taskData: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...taskData };
+  for (const f of NEWER_FIELDS) delete copy[f];
+  return copy;
+}
+
 // Build a task data object from a row (first row of a group for visit-level data)
 function buildTaskData(
   importId: string,
@@ -234,6 +243,9 @@ async function processImport(
   let duplicates = 0;
   let firstError = "";
 
+  // Flag: strip fields the Prisma Client doesn't support (stale deploy)
+  let stripUnsupportedFields = false;
+
   // Group rows by visit key (contrato + agente + fecha_cierre) to handle
   // multiple equipment rows per visit. Each unique combination = 1 visit.
   type VisitGroup = { externalId: string | undefined; visitKey: string; rows: typeof rows };
@@ -294,6 +306,11 @@ async function processImport(
           const { taskData, coordStatus, burned: isBurnedResult } =
             buildTaskData(importId, firstRow, equiposExitosos);
 
+          // Strip fields unsupported by stale Prisma Client
+          const safeTaskData = stripUnsupportedFields
+            ? stripNewFields(taskData)
+            : taskData;
+
           if (coordStatus === "OUTSIDE_PERU") outsidePeru++;
           if (coordStatus === "MISSING") missingCoords++;
           if (isBurnedResult) burned++;
@@ -301,7 +318,8 @@ async function processImport(
           const equipos = group.rows.map(r => buildEquipoData(r));
 
           await prisma.$transaction(async (tx) => {
-            const task = await tx.recuperoTask.create({ data: taskData });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const task = await tx.recuperoTask.create({ data: safeTaskData as any });
             if (equipos.length > 0) {
               await tx.recuperoEquipo.createMany({
                 data: equipos.map(eq => ({ ...eq, taskId: task.id })),
@@ -313,16 +331,61 @@ async function processImport(
           const { taskData, coordStatus, burned: isBurnedResult } =
             buildTaskData(importId, firstRow, 0);
 
+          const safeTaskData = stripUnsupportedFields
+            ? stripNewFields(taskData)
+            : taskData;
+
           if (coordStatus === "OUTSIDE_PERU") outsidePeru++;
           if (coordStatus === "MISSING") missingCoords++;
           if (isBurnedResult) burned++;
 
-          await prisma.recuperoTask.create({ data: taskData });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await prisma.recuperoTask.create({ data: safeTaskData as any });
         }
 
         imported++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+
+        // If Prisma rejects an unknown field, strip newer fields and retry
+        if (!stripUnsupportedFields && msg.includes("Unknown argument")) {
+          stripUnsupportedFields = true;
+          console.warn("[RECUPERO IMPORT] Detected stale Prisma Client — stripping newer fields and retrying");
+          // Re-process this group by decrementing i (handled by re-pushing to batch)
+          // Simpler: just retry this one group inline
+          try {
+            const firstRow = group.rows[0];
+            const equiposExitosos = hasEquipment
+              ? group.rows.filter(r => r.gestion_exitosa === true).length
+              : 0;
+            const { taskData } = buildTaskData(importId, firstRow, equiposExitosos);
+            const safeTaskData = stripNewFields(taskData);
+
+            if (hasEquipment) {
+              const equipos = group.rows.map(r => buildEquipoData(r));
+              await prisma.$transaction(async (tx) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const task = await tx.recuperoTask.create({ data: safeTaskData as any });
+                if (equipos.length > 0) {
+                  await tx.recuperoEquipo.createMany({
+                    data: equipos.map(eq => ({ ...eq, taskId: task.id })),
+                  });
+                }
+              });
+            } else {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await prisma.recuperoTask.create({ data: safeTaskData as any });
+            }
+            imported++;
+            continue;
+          } catch (retryErr) {
+            const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            if (!firstError) firstError = retryMsg;
+            errors++;
+            continue;
+          }
+        }
+
         if (errors < 5) {
           console.error(`[RECUPERO IMPORT] Row error (group ${group.externalId}):`, msg);
         }
