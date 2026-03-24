@@ -4,6 +4,7 @@ frontend:
     preBuild:
       commands:
         - npm ci
+        - rm -rf node_modules/.prisma
         - npx prisma generate
         - npx prisma db push
         - npx tsx prisma/seed.ts
