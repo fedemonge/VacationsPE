@@ -122,9 +122,10 @@ export async function POST(request: NextRequest) {
       status: "processing",
     });
   } catch (error) {
-    console.error("[RECUPERO IMPORT] ERROR:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("[RECUPERO IMPORT] ERROR:", errMsg, error instanceof Error ? error.stack : "");
     return NextResponse.json(
-      { error: "Error al procesar el archivo" },
+      { error: `Error al procesar el archivo: ${errMsg}` },
       { status: 500 }
     );
   }
