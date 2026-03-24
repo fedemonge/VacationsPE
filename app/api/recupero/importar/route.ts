@@ -232,6 +232,7 @@ async function processImport(
   let outsidePeru = 0;
   let missingCoords = 0;
   let duplicates = 0;
+  let firstError = "";
 
   // Group rows by visit key (contrato + agente + fecha_cierre) to handle
   // multiple equipment rows per visit. Each unique combination = 1 visit.
@@ -320,7 +321,12 @@ async function processImport(
         }
 
         imported++;
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (errors < 5) {
+          console.error(`[RECUPERO IMPORT] Row error (group ${group.externalId}):`, msg);
+        }
+        if (!firstError) firstError = msg;
         errors++;
       }
     }
@@ -356,6 +362,7 @@ async function processImport(
       outsidePeru,
       missingCoords,
       duplicates,
+      firstError: firstError || undefined,
     };
   }
 
