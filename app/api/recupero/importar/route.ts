@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { parseFile, parseDate } from "@/lib/recupero/parser";
 import { determineCoordStatus, isBurned } from "@/lib/recupero/geo";
 import { isSuccessful, isAgendado } from "@/lib/recupero/types";
+import { ensureRecuperoTables } from "@/lib/recupero/ensure-tables";
 
 // Allow large file uploads (up to 100MB)
 export const maxDuration = 60;
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  await ensureRecuperoTables();
 
   const { searchParams } = new URL(request.url);
   const progressId = searchParams.get("progressId");
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  await ensureRecuperoTables();
 
   try {
     const formData = await request.formData();
