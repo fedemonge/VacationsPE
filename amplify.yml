@@ -4,12 +4,13 @@ frontend:
     preBuild:
       commands:
         - npm ci
-        - rm -rf node_modules/.prisma
-        - npx prisma generate
+        - rm -rf node_modules/.prisma node_modules/@prisma/client/runtime
+        - npx prisma generate --no-hints
         - npx prisma db push
         - npx tsx prisma/seed.ts
     build:
       commands:
+        - rm -rf .next/cache
         - npm run build
   artifacts:
     baseDirectory: .next
@@ -17,5 +18,4 @@ frontend:
       - '**/*'
   cache:
     paths:
-      - node_modules/**/*
       - .next/cache/**/*
