@@ -32,7 +32,8 @@ function parseXlsx(buffer: Buffer): RecuperoTaskRow[] {
   const headers = Object.keys(raw[0]);
   console.log("[PARSER] Excel headers:", headers);
 
-  return raw.map((row) => mapRow(row, headers)).filter(Boolean) as RecuperoTaskRow[];
+  const colMap = buildColumnMap(headers);
+  return raw.map((row) => mapRow(row, colMap)).filter(Boolean) as RecuperoTaskRow[];
 }
 
 function parseTxt(buffer: Buffer): RecuperoTaskRow[] {
@@ -54,6 +55,7 @@ function parseTxt(buffer: Buffer): RecuperoTaskRow[] {
   const headers = headerLine.split(delimiter).map((h) => h.trim());
   console.log("[PARSER] TXT headers:", headers);
 
+  const colMap = buildColumnMap(headers);
   const rows: RecuperoTaskRow[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -63,7 +65,7 @@ function parseTxt(buffer: Buffer): RecuperoTaskRow[] {
       obj[h] = values[idx]?.trim() ?? null;
     });
     try {
-      const mapped = mapRow(obj, headers);
+      const mapped = mapRow(obj, colMap);
       if (mapped) rows.push(mapped);
     } catch {
       // Skip malformed rows
@@ -155,16 +157,14 @@ function buildColumnMap(headers: string[]): Record<string, string | null> {
     map[field] = found;
   }
 
-  console.log("[PARSER] Column mapping:", JSON.stringify(map));
+  console.log("[PARSER] Column mapping:", JSON.stringify(map, null, 0));
   return map;
 }
 
 /**
- * Map a raw row object to RecuperoTaskRow using the detected column mapping.
+ * Map a raw row object to RecuperoTaskRow using a pre-built column mapping.
  */
-function mapRow(raw: Record<string, unknown>, headers: string[]): RecuperoTaskRow | null {
-  // Build column map (cached after first call via closure would be ideal, but this is simple enough)
-  const colMap = buildColumnMap(headers);
+function mapRow(raw: Record<string, unknown>, colMap: Record<string, string | null>): RecuperoTaskRow | null {
 
   const get = (field: string): string | undefined => {
     const col = colMap[field];
