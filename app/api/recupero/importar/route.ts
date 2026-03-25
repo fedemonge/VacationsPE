@@ -352,6 +352,14 @@ async function processImport(
             if (equipos.length > 0) {
               await insertEquiposRawSQL(tx, task.id, equipos);
             }
+            // Always set equiposRecuperados via raw SQL (Prisma Client may not support the field)
+            if (equiposExitosos > 0) {
+              await tx.$executeRawUnsafe(
+                `UPDATE "RecuperoTask" SET "equiposRecuperados" = ? WHERE "id" = ?`,
+                equiposExitosos,
+                task.id
+              );
+            }
           });
         } else {
           // Legacy mode: no equipment columns, bulk insert tasks only
@@ -395,6 +403,13 @@ async function processImport(
                 const task = await tx.recuperoTask.create({ data: safeTaskData as any });
                 if (equipos.length > 0) {
                   await insertEquiposRawSQL(tx, task.id, equipos);
+                }
+                if (equiposExitosos > 0) {
+                  await tx.$executeRawUnsafe(
+                    `UPDATE "RecuperoTask" SET "equiposRecuperados" = ? WHERE "id" = ?`,
+                    equiposExitosos,
+                    task.id
+                  );
                 }
               });
             } else {
