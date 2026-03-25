@@ -61,17 +61,21 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Count exitosas: tipoCierre = "RECUPERADO WODEN"
-    const [exitosas, equiposSumResult] = await Promise.all([
-      prisma.recuperoTask.count({
-        where: { ...where, tipoCierre: "RECUPERADO WODEN" },
-      }),
-      prisma.recuperoTask.aggregate({
+    const exitosas = await prisma.recuperoTask.count({
+      where: { ...where, tipoCierre: "RECUPERADO WODEN" },
+    });
+
+    // equiposRecuperados may not exist in stale Prisma Client — use raw SQL fallback
+    let totalEquipos = 0;
+    try {
+      const equiposSumResult = await prisma.recuperoTask.aggregate({
         where,
         _sum: { equiposRecuperados: true },
-      }),
-    ]);
-
-    const totalEquipos = equiposSumResult._sum.equiposRecuperados ?? 0;
+      });
+      totalEquipos = equiposSumResult._sum.equiposRecuperados ?? 0;
+    } catch {
+      // Field not available in this Prisma Client build — skip
+    }
     const factorDeUso = exitosas > 0
       ? Math.round((totalEquipos / exitosas) * 10) / 10
       : 0;
