@@ -145,6 +145,35 @@ function stripNewFields(taskData: Record<string, unknown>): Record<string, unkno
   return copy;
 }
 
+// Insert equipment records via raw SQL (bypasses stale Prisma Client that may lack RecuperoEquipo model)
+async function insertEquiposRawSQL(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  taskId: string,
+  equipos: ReturnType<typeof buildEquipoData>[]
+) {
+  for (const eq of equipos) {
+    const id = crypto.randomUUID();
+    await tx.$executeRawUnsafe(
+      `INSERT INTO "RecuperoEquipo" ("id", "taskId", "serial", "serialAdicional", "tarjetas", "controles", "fuentes", "cablePoder", "cableFibra", "cableHdmi", "cablesRca", "cablesRj11", "cablesRj45", "gestionExitosa", "createdAt")
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      id,
+      taskId,
+      eq.serial ?? null,
+      eq.serialAdicional ?? null,
+      eq.tarjetas ? 1 : 0,
+      eq.controles ? 1 : 0,
+      eq.fuentes ? 1 : 0,
+      eq.cablePoder ? 1 : 0,
+      eq.cableFibra ? 1 : 0,
+      eq.cableHdmi ? 1 : 0,
+      eq.cablesRca ? 1 : 0,
+      eq.cablesRj11 ? 1 : 0,
+      eq.cablesRj45 ? 1 : 0,
+      eq.gestionExitosa ? 1 : 0
+    );
+  }
+}
+
 // Build a task data object from a row (first row of a group for visit-level data)
 function buildTaskData(
   importId: string,
@@ -321,9 +350,7 @@ async function processImport(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const task = await tx.recuperoTask.create({ data: safeTaskData as any });
             if (equipos.length > 0) {
-              await tx.recuperoEquipo.createMany({
-                data: equipos.map(eq => ({ ...eq, taskId: task.id })),
-              });
+              await insertEquiposRawSQL(tx, task.id, equipos);
             }
           });
         } else {
@@ -367,9 +394,7 @@ async function processImport(
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const task = await tx.recuperoTask.create({ data: safeTaskData as any });
                 if (equipos.length > 0) {
-                  await tx.recuperoEquipo.createMany({
-                    data: equipos.map(eq => ({ ...eq, taskId: task.id })),
-                  });
+                  await insertEquiposRawSQL(tx, task.id, equipos);
                 }
               });
             } else {
