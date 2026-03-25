@@ -65,16 +65,28 @@ export async function GET(request: NextRequest) {
       where: { ...where, tipoCierre: "RECUPERADO WODEN" },
     });
 
-    // equiposRecuperados may not exist in stale Prisma Client — use raw SQL fallback
+    // Use raw SQL for equiposRecuperados (field may not exist in stale Prisma Client)
     let totalEquipos = 0;
     try {
-      const equiposSumResult = await prisma.recuperoTask.aggregate({
-        where,
-        _sum: { equiposRecuperados: true },
+      // Get IDs from the already-filtered Prisma count scope, then sum via raw SQL
+      const ids = await prisma.recuperoTask.findMany({
+        where: { ...where, tipoCierre: "RECUPERADO WODEN" },
+        select: { id: true },
       });
-      totalEquipos = equiposSumResult._sum.equiposRecuperados ?? 0;
+      if (ids.length > 0) {
+        // Process in chunks of 500 to avoid SQL limits
+        for (let c = 0; c < ids.length; c += 500) {
+          const chunk = ids.slice(c, c + 500).map(r => r.id);
+          const placeholders = chunk.map(() => "?").join(",");
+          const result = await prisma.$queryRawUnsafe<{ total: number }[]>(
+            `SELECT COALESCE(SUM("equiposRecuperados"), 0) as total FROM "RecuperoTask" WHERE "id" IN (${placeholders})`,
+            ...chunk
+          );
+          totalEquipos += Number(result[0]?.total) || 0;
+        }
+      }
     } catch {
-      // Field not available in this Prisma Client build — skip
+      // Column may not exist yet
     }
     const factorDeUso = exitosas > 0
       ? Math.round((totalEquipos / exitosas) * 10) / 10

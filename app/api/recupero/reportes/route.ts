@@ -112,12 +112,14 @@ export async function GET(request: NextRequest) {
 
             let totalEquipos = 0;
             try {
-              const equipoSum = await prisma.recuperoTask.aggregate({
-                where: agentWhere,
-                _sum: { equiposRecuperados: true },
-              });
-              totalEquipos = equipoSum._sum.equiposRecuperados || 0;
-            } catch { /* field not in stale Prisma Client */ }
+              const eqResult = await prisma.$queryRawUnsafe<{ total: number }[]>(
+                `SELECT COALESCE(SUM("equiposRecuperados"), 0) as total FROM "RecuperoTask" WHERE "agenteCampo" = ?${
+                  where.periodoYear !== undefined ? ` AND "periodoYear" = ${Number(where.periodoYear)}` : ""
+                }${where.periodoMonth !== undefined ? ` AND "periodoMonth" = ${Number(where.periodoMonth)}` : ""}`,
+                agent.agenteCampo
+              );
+              totalEquipos = Number(eqResult[0]?.total) || 0;
+            } catch { /* column may not exist */ }
 
             return {
               agenteCampo: agent.agenteCampo,
@@ -172,12 +174,14 @@ export async function GET(request: NextRequest) {
             ]);
             let equipos = 0;
             try {
-              const equipoSum = await prisma.recuperoTask.aggregate({
-                where: agentWhere,
-                _sum: { equiposRecuperados: true },
-              });
-              equipos = equipoSum._sum.equiposRecuperados ?? 0;
-            } catch { /* field not in stale Prisma Client */ }
+              const eqResult = await prisma.$queryRawUnsafe<{ total: number }[]>(
+                `SELECT COALESCE(SUM("equiposRecuperados"), 0) as total FROM "RecuperoTask" WHERE "agenteCampo" = ?${
+                  where.periodoYear !== undefined ? ` AND "periodoYear" = ${Number(where.periodoYear)}` : ""
+                }${where.periodoMonth !== undefined ? ` AND "periodoMonth" = ${Number(where.periodoMonth)}` : ""}`,
+                agent.agenteCampo
+              );
+              equipos = Number(eqResult[0]?.total) || 0;
+            } catch { /* column may not exist */ }
             return {
               agenteCampo: agent.agenteCampo,
               departamento: deptGroup.length > 0 ? deptGroup[0].departamento : null,
