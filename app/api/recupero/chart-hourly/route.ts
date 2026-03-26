@@ -43,12 +43,13 @@ export async function GET(request: NextRequest) {
       hourly.push({ hour: h, exitosas: 0, noExitosas: 0, total: 0 });
     }
 
-    // Bucket each task by the hour of its fechaCierre
+    // Bucket each task by the hour of its fechaCierre.
+    // Dates are stored as Lima local time (UTC-naive from parseDate), so getUTCHours()
+    // directly returns the Lima hour — no offset conversion needed.
     for (const task of tasks) {
       if (!task.fechaCierre) continue;
       const date = new Date(task.fechaCierre);
-      const utcHour = date.getUTCHours();
-      const hour = (utcHour - 5 + 24) % 24; // Convert UTC to Lima (UTC-5)
+      const hour = date.getUTCHours(); // Already Lima local time
       if (hour < 0 || hour > 23) continue;
 
       hourly[hour].total++;
