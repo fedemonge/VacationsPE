@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureEmployeeColumns } from "@/lib/ensure-employee-schema";
 
 function isSelfSupervisorPosition(position: string): boolean {
   const p = position.toLowerCase().trim();
@@ -7,6 +8,8 @@ function isSelfSupervisorPosition(position: string): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  await ensureEmployeeColumns();
+
   const { searchParams } = new URL(request.url);
   const costCenter = searchParams.get("costCenter");
   const active = searchParams.get("active");
@@ -16,16 +19,21 @@ export async function GET(request: NextRequest) {
   if (active === "true") where.terminationDate = null;
   if (active === "false") where.terminationDate = { not: null };
 
-  const employees = await prisma.employee.findMany({
-    where,
-    include: { shift: true },
-    orderBy: { fullName: "asc" },
-  });
-
-  return NextResponse.json({ employees });
+  try {
+    const employees = await prisma.employee.findMany({
+      where,
+      include: { shift: true },
+      orderBy: { fullName: "asc" },
+    });
+    return NextResponse.json({ employees });
+  } catch (error) {
+    console.error("[EMPLEADOS GET] ERROR:", error);
+    return NextResponse.json({ error: "Error al cargar empleados" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
+  await ensureEmployeeColumns();
   try {
     const body = await request.json();
     const {

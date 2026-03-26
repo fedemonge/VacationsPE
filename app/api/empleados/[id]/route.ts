@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ensureEmployeeColumns } from "@/lib/ensure-employee-schema";
 
 function isSelfSupervisorPosition(position: string): boolean {
   const p = position.toLowerCase().trim();
@@ -32,6 +33,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  await ensureEmployeeColumns();
   try {
     const body = await request.json();
     const {
