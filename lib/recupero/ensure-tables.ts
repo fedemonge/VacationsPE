@@ -10,13 +10,14 @@ export async function ensureRecuperoTables() {
   if (tablesChecked) return;
 
   try {
-    // Quick check: try to count rows. If the table doesn't exist, this throws.
-    await prisma.$queryRawUnsafe(`SELECT count(*) as c FROM RecuperoImport LIMIT 1`);
+    // Quick check: try to count rows. If any table doesn't exist, this throws.
+    await prisma.$queryRawUnsafe(`SELECT count(*) as c FROM "RecuperoImport" LIMIT 1`);
+    await prisma.$queryRawUnsafe(`SELECT count(*) as c FROM "ClientDataImport" LIMIT 1`);
     tablesChecked = true;
     return;
   } catch {
-    // Table doesn't exist — create all Recupero tables
-    console.log("[RECUPERO] Creating missing Recupero tables...");
+    // Table doesn't exist — create all tables
+    console.log("[RECUPERO] Creating missing tables...");
   }
 
   try {
@@ -109,7 +110,69 @@ export async function ensureRecuperoTables() {
 
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RecuperoEquipo_taskId_idx" ON "RecuperoEquipo"("taskId")`);
 
-    console.log("[RECUPERO] All Recupero tables created successfully.");
+    // Client Data (Contact Center / Calidad de Datos)
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ClientDataImport" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "source" TEXT NOT NULL,
+        "fileName" TEXT NOT NULL,
+        "receptionDate" DATETIME NOT NULL,
+        "uploadDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "totalRows" INTEGER NOT NULL DEFAULT 0,
+        "validPhoneRows" INTEGER NOT NULL DEFAULT 0,
+        "incompletePhoneRows" INTEGER NOT NULL DEFAULT 0,
+        "invalidPhoneRows" INTEGER NOT NULL DEFAULT 0,
+        "missingPhoneRows" INTEGER NOT NULL DEFAULT 0,
+        "validCoordsRows" INTEGER NOT NULL DEFAULT 0,
+        "coordsInPeruRows" INTEGER NOT NULL DEFAULT 0,
+        "coordsOutsidePeruRows" INTEGER NOT NULL DEFAULT 0,
+        "validAddressRows" INTEGER NOT NULL DEFAULT 0,
+        "extractedCoordsRows" INTEGER NOT NULL DEFAULT 0,
+        "importedByEmail" TEXT
+      )
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ClientDataRecord" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "importId" TEXT NOT NULL,
+        "rowNumber" INTEGER NOT NULL,
+        "externalId" TEXT,
+        "customerId" TEXT,
+        "customerName" TEXT,
+        "address" TEXT,
+        "district" TEXT,
+        "province" TEXT,
+        "department" TEXT,
+        "workOrderType" TEXT,
+        "status" TEXT,
+        "phone1" TEXT,
+        "phone2" TEXT,
+        "latitude" REAL,
+        "longitude" REAL,
+        "coordsSource" TEXT NOT NULL DEFAULT 'MISSING',
+        "equipmentType" TEXT,
+        "equipmentModel" TEXT,
+        "serialNumber" TEXT,
+        "technology" TEXT,
+        "hasValidPhone" BOOLEAN NOT NULL DEFAULT false,
+        "phoneStatus" TEXT NOT NULL DEFAULT 'MISSING',
+        "hasValidCoords" BOOLEAN NOT NULL DEFAULT false,
+        "coordsInPeru" BOOLEAN NOT NULL DEFAULT false,
+        "coordsOutsidePeru" BOOLEAN NOT NULL DEFAULT false,
+        "hasValidAddress" BOOLEAN NOT NULL DEFAULT false,
+        "coordsExtracted" BOOLEAN NOT NULL DEFAULT false,
+        "rawData" TEXT NOT NULL DEFAULT '{}',
+        CONSTRAINT "ClientDataRecord_importId_fkey" FOREIGN KEY ("importId") REFERENCES "ClientDataImport" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )
+    `);
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_importId_idx" ON "ClientDataRecord"("importId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_hasValidPhone_idx" ON "ClientDataRecord"("hasValidPhone")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_hasValidCoords_idx" ON "ClientDataRecord"("hasValidCoords")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_hasValidAddress_idx" ON "ClientDataRecord"("hasValidAddress")`);
+
+    console.log("[RECUPERO] All Recupero + ClientData tables created successfully.");
     tablesChecked = true;
   } catch (err) {
     console.error("[RECUPERO] Failed to create tables:", err);
