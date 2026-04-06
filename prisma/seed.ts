@@ -684,6 +684,48 @@ async function main() {
   console.log(`- ${fecIdeas.length} ideas FEC con historial y valores duales`);
   console.log("- Acceso de usuarios a empresas configurado");
   console.log(`- ${financialLines.length} lineas financieras FEC`);
+
+  // ==========================================
+  // MRP — Material Requirements Planning
+  // ==========================================
+
+  // MRP Shift Configs
+  const mrpShifts = [
+    { name: "Mañana", startTime: "06:00", endTime: "14:00", costMultiplier: 1.0 },
+    { name: "Tarde", startTime: "14:00", endTime: "22:00", costMultiplier: 1.25 },
+    { name: "Noche", startTime: "22:00", endTime: "06:00", costMultiplier: 1.5 },
+  ];
+  const existingMrpShifts = await prisma.mrpShiftConfig.count();
+  if (existingMrpShifts === 0) {
+    await prisma.mrpShiftConfig.createMany({ data: mrpShifts });
+  }
+
+  // MRP Sub-Processes
+  const mrpSubProcesses = [
+    { code: "DIAG", name: "Diagnóstico", defaultSequence: 1, capacityPerHour: 4, requiresSpecialist: true },
+    { code: "LIMP", name: "Limpieza", defaultSequence: 2, capacityPerHour: 8, requiresSpecialist: false },
+    { code: "REP_COSM", name: "Reparación Cosmética", defaultSequence: 3, capacityPerHour: 5, requiresSpecialist: false },
+    { code: "REACON", name: "Reacondicionamiento", defaultSequence: 4, capacityPerHour: 3, requiresSpecialist: true },
+    { code: "REP_AVZ", name: "Reparación Avanzada", defaultSequence: 5, capacityPerHour: 2, requiresSpecialist: true },
+    { code: "EMPAQ", name: "Empaque", defaultSequence: 6, capacityPerHour: 10, requiresSpecialist: false },
+    { code: "CC", name: "Control de Calidad", defaultSequence: 7, capacityPerHour: 6, requiresSpecialist: true },
+  ];
+  for (const sp of mrpSubProcesses) {
+    await prisma.mrpSubProcess.upsert({ where: { code: sp.code }, update: {}, create: sp });
+  }
+
+  // MRP Working Calendar
+  const currentYear = new Date().getFullYear();
+  for (const year of [currentYear, currentYear + 1]) {
+    for (let month = 1; month <= 12; month++) {
+      const existing = await prisma.mrpWorkingCalendar.findFirst({ where: { year, month } });
+      if (!existing) {
+        await prisma.mrpWorkingCalendar.create({ data: { year, month, workingDays: 22 } });
+      }
+    }
+  }
+
+  console.log("- MRP: 3 turnos, 7 subprocesos, calendario laboral");
 }
 
 main()

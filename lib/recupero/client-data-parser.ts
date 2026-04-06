@@ -121,21 +121,39 @@ function parseClaroRow(row: Record<string, unknown>, idx: number): ParsedClientR
   const referencia = findCol(row, 'referencia') || ''
   const observacion = findCol(row, 'observacion', 'observacionsot') || ''
 
-  // Extract coords from address (Claro embeds coords in direccion field)
+  // 1. Try direct coordinate columns X (lat) and Y (lon)
   let latitude: number | null = null
   let longitude: number | null = null
   let coordsSource: ParsedClientRecord['coordsSource'] = 'MISSING'
   let coordsExtracted = false
 
-  const addrCoords = extractCoordsFromText(address)
-  if (addrCoords) {
-    latitude = addrCoords.lat
-    longitude = addrCoords.lon
-    coordsSource = 'EXTRACTED_ADDRESS'
-    coordsExtracted = true
+  const directX = findColFloat(row, 'x')
+  const directY = findColFloat(row, 'y')
+  if (directX && directY) {
+    // X=lat, Y=lon per Claro convention; validate Peru bounds
+    if (isValidPeruCoord(directX, directY)) {
+      latitude = directX
+      longitude = directY
+      coordsSource = 'DIRECT'
+    } else if (isValidPeruCoord(directY, directX)) {
+      latitude = directY
+      longitude = directX
+      coordsSource = 'DIRECT'
+    }
   }
 
-  // Also check referencia and observacion for coords
+  // 2. Fallback: extract coords from address text
+  if (!latitude) {
+    const addrCoords = extractCoordsFromText(address)
+    if (addrCoords) {
+      latitude = addrCoords.lat
+      longitude = addrCoords.lon
+      coordsSource = 'EXTRACTED_ADDRESS'
+      coordsExtracted = true
+    }
+  }
+
+  // 3. Fallback: check referencia and observacion
   if (!latitude) {
     const refCoords = extractCoordsFromText(referencia) || extractCoordsFromText(observacion)
     if (refCoords) {

@@ -172,7 +172,206 @@ export async function ensureRecuperoTables() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_hasValidCoords_idx" ON "ClientDataRecord"("hasValidCoords")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClientDataRecord_hasValidAddress_idx" ON "ClientDataRecord"("hasValidAddress")`);
 
-    console.log("[RECUPERO] All Recupero + ClientData tables created successfully.");
+    // ── Route Optimization (Rutas) ──────────────────────────────────
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RutaConfig" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "key" TEXT NOT NULL,
+        "value" TEXT NOT NULL,
+        "description" TEXT NOT NULL DEFAULT '',
+        "updatedAt" DATETIME NOT NULL,
+        "updatedBy" TEXT NOT NULL DEFAULT 'system'
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "RutaConfig_key_key" ON "RutaConfig"("key")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RutaAgente" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "nombre" TEXT NOT NULL,
+        "latInicio" REAL NOT NULL,
+        "lonInicio" REAL NOT NULL,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "RutaAgente_nombre_key" ON "RutaAgente"("nombre")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaAgente_isActive_idx" ON "RutaAgente"("isActive")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ScoreAgendaImport" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "fileName" TEXT NOT NULL,
+        "totalRows" INTEGER NOT NULL DEFAULT 0,
+        "importedRows" INTEGER NOT NULL DEFAULT 0,
+        "errorRows" INTEGER NOT NULL DEFAULT 0,
+        "importedByEmail" TEXT,
+        "importedByName" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaImport_createdAt_idx" ON "ScoreAgendaImport"("createdAt")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ScoreAgendaRecord" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "importId" TEXT NOT NULL,
+        "sot" TEXT,
+        "codCliente" TEXT,
+        "dni" TEXT,
+        "cliente" TEXT,
+        "direccion" TEXT,
+        "distrito" TEXT,
+        "provincia" TEXT,
+        "departamento" TEXT,
+        "tipoBaja" TEXT,
+        "tecnologia" TEXT,
+        "tipoAdquisicion" TEXT,
+        "tipoProducto" TEXT,
+        "cantidadEquipos" INTEGER NOT NULL DEFAULT 1,
+        "tipoBase" TEXT,
+        "mesBase" TEXT,
+        "proyecto" TEXT,
+        "telefonoContactado" TEXT,
+        "idCall" TEXT,
+        "skill" TEXT,
+        "idAgente" TEXT,
+        "agenteNombre" TEXT,
+        "resultadoMarcacion" TEXT,
+        "novedadGeneral" TEXT,
+        "tipificacion" TEXT,
+        "tipificacionHist" TEXT,
+        "fechaGestion" DATETIME,
+        "comentarios" TEXT,
+        "direccionActualizada" TEXT,
+        "referencia" TEXT,
+        "distritoAgenda" TEXT,
+        "provinciaAgenda" TEXT,
+        "departamentoAgenda" TEXT,
+        "fechaAgenda" DATETIME,
+        "horarioAgenda" TEXT,
+        "telefonoReferencia" TEXT,
+        "latitud" REAL,
+        "longitud" REAL,
+        "rangoHorario" TEXT,
+        "tipoAgenda" TEXT,
+        "rawData" TEXT NOT NULL DEFAULT '{}',
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "ScoreAgendaRecord_importId_fkey" FOREIGN KEY ("importId") REFERENCES "ScoreAgendaImport" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaRecord_importId_idx" ON "ScoreAgendaRecord"("importId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaRecord_fechaAgenda_idx" ON "ScoreAgendaRecord"("fechaAgenda")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaRecord_proyecto_idx" ON "ScoreAgendaRecord"("proyecto")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaRecord_departamento_idx" ON "ScoreAgendaRecord"("departamento")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScoreAgendaRecord_codCliente_idx" ON "ScoreAgendaRecord"("codCliente")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RutaProgramacion" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "agenteId" TEXT NOT NULL,
+        "fecha" DATETIME NOT NULL,
+        "totalVisitas" INTEGER NOT NULL DEFAULT 0,
+        "totalDistanciaKm" REAL NOT NULL DEFAULT 0,
+        "totalTiempoMin" REAL NOT NULL DEFAULT 0,
+        "status" TEXT NOT NULL DEFAULT 'GENERADA',
+        "generadoPorEmail" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL,
+        CONSTRAINT "RutaProgramacion_agenteId_fkey" FOREIGN KEY ("agenteId") REFERENCES "RutaAgente" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaProgramacion_agenteId_idx" ON "RutaProgramacion"("agenteId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaProgramacion_fecha_idx" ON "RutaProgramacion"("fecha")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaProgramacion_status_idx" ON "RutaProgramacion"("status")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RutaParada" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "rutaId" TEXT NOT NULL,
+        "secuencia" INTEGER NOT NULL,
+        "periodo" TEXT NOT NULL,
+        "esAgendada" BOOLEAN NOT NULL DEFAULT false,
+        "sourceType" TEXT NOT NULL,
+        "sourceId" TEXT,
+        "sot" TEXT,
+        "codCliente" TEXT,
+        "cliente" TEXT,
+        "direccion" TEXT,
+        "distrito" TEXT,
+        "departamento" TEXT,
+        "latitud" REAL,
+        "longitud" REAL,
+        "telefono" TEXT,
+        "distanciaDesdeAnteriorKm" REAL NOT NULL DEFAULT 0,
+        "tiempoViajeMin" REAL NOT NULL DEFAULT 0,
+        "duracionVisitaMin" REAL NOT NULL DEFAULT 10,
+        "horaEstimadaLlegada" TEXT,
+        "horaEstimadaSalida" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "RutaParada_rutaId_fkey" FOREIGN KEY ("rutaId") REFERENCES "RutaProgramacion" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaParada_rutaId_idx" ON "RutaParada"("rutaId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RutaParada_secuencia_idx" ON "RutaParada"("secuencia")`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RutaExportConfig" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "fieldOrder" TEXT NOT NULL,
+        "delimiter" TEXT NOT NULL DEFAULT ',',
+        "isDefault" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "RutaExportConfig_name_key" ON "RutaExportConfig"("name")`);
+
+    // Seed default RutaConfig values
+    const defaultConfigs = [
+      { key: "VELOCIDAD_PROMEDIO_KMH", value: "25", description: "Velocidad promedio de desplazamiento en km/h" },
+      { key: "DURACION_VISITA_MIN", value: "10", description: "Duracion promedio de cada visita en minutos" },
+      { key: "DISTANCIA_MAXIMA_KM", value: "10", description: "Distancia maxima permitida a la siguiente visita en km" },
+      { key: "PERIODO_AM_INICIO", value: "08:00", description: "Hora de inicio del periodo AM" },
+      { key: "PERIODO_AM_FIN", value: "12:00", description: "Hora de fin del periodo AM" },
+      { key: "PERIODO_PM_INICIO", value: "13:00", description: "Hora de inicio del periodo PM" },
+      { key: "PERIODO_PM_FIN", value: "17:00", description: "Hora de fin del periodo PM" },
+    ];
+    for (const cfg of defaultConfigs) {
+      const exists = await prisma.$queryRawUnsafe<{ c: number }[]>(
+        `SELECT count(*) as c FROM "RutaConfig" WHERE "key" = ?`, cfg.key
+      );
+      if (!exists[0]?.c) {
+        const id = crypto.randomUUID();
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "RutaConfig" ("id", "key", "value", "description", "updatedAt", "updatedBy") VALUES (?, ?, ?, ?, datetime('now'), 'system')`,
+          id, cfg.key, cfg.value, cfg.description
+        );
+      }
+    }
+
+    // Seed default export config
+    const exportExists = await prisma.$queryRawUnsafe<{ c: number }[]>(
+      `SELECT count(*) as c FROM "RutaExportConfig" WHERE "name" = 'DEFAULT'`
+    );
+    if (!exportExists[0]?.c) {
+      const id = crypto.randomUUID();
+      const defaultFields = JSON.stringify([
+        "secuencia", "periodo", "sot", "codCliente", "cliente", "direccion",
+        "distrito", "departamento", "latitud", "longitud", "telefono",
+        "distanciaDesdeAnteriorKm", "tiempoViajeMin", "duracionVisitaMin",
+        "horaEstimadaLlegada", "horaEstimadaSalida", "esAgendada"
+      ]);
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "RutaExportConfig" ("id", "name", "fieldOrder", "delimiter", "isDefault", "createdAt", "updatedAt") VALUES (?, 'DEFAULT', ?, ',', true, datetime('now'), datetime('now'))`,
+        id, defaultFields
+      );
+    }
+
+    console.log("[RECUPERO] All Recupero + ClientData + Rutas tables created successfully.");
     tablesChecked = true;
   } catch (err) {
     console.error("[RECUPERO] Failed to create tables:", err);

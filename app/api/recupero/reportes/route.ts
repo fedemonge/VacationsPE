@@ -198,10 +198,58 @@ export async function GET(request: NextRequest) {
 
         effDetails.sort((a, b) => b.exitosas - a.exitosas);
 
+        // Calculate "base gestionable" per department:
+        // Unique customers (cedulaUsuario) whose LATEST tipoCierre is still routable
+        // (not recovered, not final, not burned)
+        const ROUTABLE_PATTERNS = [
+          "cliente no encontrado", "desea la visita otro dia", "desea otro dia",
+          "reconfirmado agente campo", "cliente de viaje",
+          "pend. visita", "pend visita", "asignado",
+          "cliente no cuenta con los equipos", "cliente no entrega equipos",
+        ];
+        const FINAL_PATTERNS = [
+          "recuperado woden", "fraude", "servicio activo", "cliente ya entrego",
+        ];
+
+        // Get latest task per customer from last 3 calendar months (independent of filters)
+        const now = new Date();
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        const allTasksForGest = await prisma.recuperoTask.findMany({
+          where: {
+            cedulaUsuario: { not: null },
+            fechaCierre: { gte: threeMonthsAgo },
+          },
+          select: { cedulaUsuario: true, departamento: true, tipoCierre: true, esQuemada: true, fechaCierre: true },
+          orderBy: { fechaCierre: "desc" },
+        });
+
+        // Keep only latest per customer
+        const latestPerCustomer = new Map<string, { departamento: string | null; tipoCierre: string | null; esQuemada: boolean }>();
+        for (const t of allTasksForGest) {
+          if (t.cedulaUsuario && !latestPerCustomer.has(t.cedulaUsuario)) {
+            latestPerCustomer.set(t.cedulaUsuario, { departamento: t.departamento, tipoCierre: t.tipoCierre, esQuemada: t.esQuemada });
+          }
+        }
+
+        // Count gestionables per department
+        const gestionablesByDept = new Map<string, number>();
+        for (const [, c] of Array.from(latestPerCustomer)) {
+          const dept = c.departamento || "SIN DEPARTAMENTO";
+          const lower = (c.tipoCierre || "").toLowerCase().trim();
+          const isFinal = FINAL_PATTERNS.some((p) => lower.includes(p));
+          const isRoutable = ROUTABLE_PATTERNS.some((p) => lower.includes(p));
+          if (!isFinal && (isRoutable || c.esQuemada || !lower)) {
+            gestionablesByDept.set(dept, (gestionablesByDept.get(dept) || 0) + 1);
+          }
+        }
+
+        const gestionables = Object.fromEntries(gestionablesByDept);
+
         return NextResponse.json({
           type: "effectiveness",
           total: effDetails.length,
           agents: effDetails,
+          gestionables,
         });
       }
 

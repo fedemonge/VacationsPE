@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte: Equipos Sin Diagnóstico — DIRECTV Jul 2025 - Feb 2026</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; padding: 24px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  h2 { font-size: 16px; font-weight: 600; color: #334155; margin: 24px 0 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
+  h3 { font-size: 14px; font-weight: 600; color: #475569; margin: 16px 0 8px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+  .kpi-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .text-orange { color: #ea580c; }
+  .text-gray { color: #64748b; }
+  .text-red { color: #dc2626; }
+  .text-blue { color: #2563eb; }
+  .text-green { color: #16a34a; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #e2e8f0; }
+  th.r { text-align: right; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; }
+  td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  td.b { font-weight: 600; }
+  tr.total { border-top: 2px solid #cbd5e1; font-weight: 700; background: #f8fafc; }
+  tr.total td { padding-top: 10px; }
+  .bar-container { height: 18px; background: #f1f5f9; border-radius: 4px; overflow: hidden; min-width: 100px; }
+  .bar { height: 100%; border-radius: 4px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .insight { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.6; }
+  .insight strong { color: #92400e; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-orange { background: #fff7ed; color: #c2410c; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-red { background: #fef2f2; color: #dc2626; }
+  @media print { body { padding: 12px; } .card { break-inside: avoid; } }
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Equipos Sin Diagnóstico — Análisis Detallado</h1>
+<p class="subtitle">DIRECTV &bull; Julio 2025 — Febrero 2026 &bull; 94,231 transacciones sin resultado de diagnóstico de un total de 183,916 (51.2%)</p>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-label">Total Sin Diagnóstico</div>
+    <div class="kpi-value text-orange">94,231</div>
+    <div class="kpi-sub">51.2% de todas las transacciones</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">En Ingreso</div>
+    <div class="kpi-value">68,090</div>
+    <div class="kpi-sub">72.3% — Recibidos, pendiente diagnóstico</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">En Diagnóstico</div>
+    <div class="kpi-value text-blue">14,848</div>
+    <div class="kpi-sub">15.8% — En proceso, sin resultado</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">En Reparación/Salida</div>
+    <div class="kpi-value text-red">10,263</div>
+    <div class="kpi-sub">10.9% — Procesados sin diagnóstico</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">SIM + Smart Cards</div>
+    <div class="kpi-value text-gray">59,120</div>
+    <div class="kpi-sub">62.7% — No requieren diagnóstico técnico</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Decodificadores Sin Diag.</div>
+    <div class="kpi-value text-red">32,462</div>
+    <div class="kpi-sub">HD ONLY + HD DVR + otros equipos</div>
+  </div>
+</div>
+
+<!-- Key Insight -->
+<div class="insight">
+  <strong>Hallazgo clave:</strong> De las 94,231 transacciones sin diagnóstico, aproximadamente 59,120 (62.7%) corresponden a SIM cards y Smart Cards que no pasan por diagnóstico técnico (son componentes pasivos). Los <strong>32,462 decodificadores sin diagnóstico</strong> (HD ONLY, HD DVR, DIGITAL, etc.) representan la brecha real en el proceso de control de calidad. Adicionalmente, 6,727 equipos en etapa de REPARACIÓN tienen falla "No Enciende" registrada pero sin resultado formal de diagnóstico.
+</div>
+
+<!-- By Etapa -->
+<h2>1. Distribución por Etapa del Proceso</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Etapa</th><th class="r">Cantidad</th><th class="r">%</th><th style="width:30%">Distribución</th></tr></thead>
+    <tbody>
+      <tr><td class="b">INGRESO</td><td class="r">68,090</td><td class="r">72.3%</td><td><div class="bar-container"><div class="bar" style="width:72.3%;background:#ea580c"></div></div></td></tr>
+      <tr><td class="b">DIAGNÓSTICO</td><td class="r">14,848</td><td class="r">15.8%</td><td><div class="bar-container"><div class="bar" style="width:15.8%;background:#2563eb"></div></div></td></tr>
+      <tr><td class="b">REPARACIÓN</td><td class="r">6,727</td><td class="r">7.1%</td><td><div class="bar-container"><div class="bar" style="width:7.1%;background:#dc2626"></div></div></td></tr>
+      <tr><td class="b">SALIDA</td><td class="r">3,536</td><td class="r">3.8%</td><td><div class="bar-container"><div class="bar" style="width:3.8%;background:#16a34a"></div></div></td></tr>
+      <tr><td class="b">Sin etapa</td><td class="r">1,030</td><td class="r">1.1%</td><td><div class="bar-container"><div class="bar" style="width:1.1%;background:#94a3b8"></div></div></td></tr>
+      <tr class="total"><td>Total</td><td class="r">94,231</td><td class="r">100%</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- By Familia -->
+<h2>2. Distribución por Familia de Equipo</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Familia</th><th class="r">Cantidad</th><th class="r">%</th><th>Nota</th></tr></thead>
+    <tbody>
+      <tr><td class="b">SIM</td><td class="r">48,580</td><td class="r">51.6%</td><td><span class="badge badge-gray">No requiere diagnóstico</span></td></tr>
+      <tr><td class="b">HD ONLY</td><td class="r">29,798</td><td class="r">31.6%</td><td><span class="badge badge-red">Requiere diagnóstico</span></td></tr>
+      <tr><td class="b">SC (Smart Card)</td><td class="r">10,540</td><td class="r">11.2%</td><td><span class="badge badge-gray">No requiere diagnóstico</span></td></tr>
+      <tr><td class="b">HD DVR</td><td class="r">2,664</td><td class="r">2.8%</td><td><span class="badge badge-red">Requiere diagnóstico</span></td></tr>
+      <tr><td class="b">DIGITAL</td><td class="r">1,697</td><td class="r">1.8%</td><td><span class="badge badge-orange">Evaluar</span></td></tr>
+      <tr><td class="b">FTTHMODEM</td><td class="r">607</td><td class="r">0.6%</td><td><span class="badge badge-orange">Evaluar</span></td></tr>
+      <tr><td class="b">4K OTT</td><td class="r">215</td><td class="r">0.2%</td><td><span class="badge badge-red">Requiere diagnóstico</span></td></tr>
+      <tr><td>Otros (DVR, 4K DVR, LIM)</td><td class="r">115</td><td class="r">0.1%</td><td></td></tr>
+      <tr><td>Sin clasificar</td><td class="r">15</td><td class="r">0.0%</td><td></td></tr>
+      <tr class="total"><td>Total</td><td class="r">94,231</td><td class="r">100%</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- By Tipo Transaccion per Etapa -->
+<h2>3. Tipos de Transacción por Etapa</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>INGRESO (68,090)</h3>
+    <table>
+      <thead><tr><th>Tipo Transacción</th><th class="r">Cantidad</th><th class="r">%</th></tr></thead>
+      <tbody>
+        <tr><td>Empaque Disponible</td><td class="r">49,066</td><td class="r">72.1%</td></tr>
+        <tr><td>Sin tipo registrado</td><td class="r">4,673</td><td class="r">6.9%</td></tr>
+        <tr><td>Smart Card Disponible</td><td class="r">3,405</td><td class="r">5.0%</td></tr>
+        <tr><td>Libre Utilización</td><td class="r">3,371</td><td class="r">5.0%</td></tr>
+        <tr><td>Conversión SKU - Recepción</td><td class="r">2,217</td><td class="r">3.3%</td></tr>
+        <tr><td>Devolución</td><td class="r">1,605</td><td class="r">2.4%</td></tr>
+        <tr><td>Recepción en Tránsito</td><td class="r">1,554</td><td class="r">2.3%</td></tr>
+        <tr><td>Recuperación</td><td class="r">813</td><td class="r">1.2%</td></tr>
+        <tr><td>Otros</td><td class="r">1,386</td><td class="r">2.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3>DIAGNÓSTICO (14,848)</h3>
+    <table>
+      <thead><tr><th>Tipo Transacción</th><th class="r">Cantidad</th><th class="r">%</th></tr></thead>
+      <tbody>
+        <tr><td>Transferencia de Subinventario</td><td class="r">6,998</td><td class="r">47.1%</td></tr>
+        <tr><td>Selección de Orden de Transferencia</td><td class="r">6,994</td><td class="r">47.1%</td></tr>
+        <tr><td>Devolución Material Defectuoso a LAB</td><td class="r">855</td><td class="r">5.8%</td></tr>
+        <tr><td>Otros</td><td class="r">1</td><td class="r">0.0%</td></tr>
+      </tbody>
+    </table>
+    <h3 style="margin-top:16px">REPARACIÓN (6,727)</h3>
+    <table>
+      <thead><tr><th>Tipo Transacción</th><th class="r">Cantidad</th><th class="r">%</th></tr></thead>
+      <tbody>
+        <tr><td>SC-SCRAP</td><td class="r">4,134</td><td class="r">61.5%</td></tr>
+        <tr><td>SCRAP Estratégico</td><td class="r">1,931</td><td class="r">28.7%</td></tr>
+        <tr><td>SCRAP</td><td class="r">662</td><td class="r">9.8%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Monthly Trend -->
+<h2>4. Tendencia Mensual — Sin Diagnóstico por Familia</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Mes</th><th class="r">SIM</th><th class="r">HD ONLY</th><th class="r">SC</th><th class="r">HD DVR</th><th class="r">DIGITAL</th><th class="r">Otros</th><th class="r">Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="b">Jul 2025</td><td class="r">9,835</td><td class="r">1,642</td><td class="r">2,282</td><td class="r">464</td><td class="r">251</td><td class="r">162</td><td class="r b">14,636</td></tr>
+      <tr><td class="b">Ago 2025</td><td class="r">6,999</td><td class="r">3,655</td><td class="r">1,245</td><td class="r">141</td><td class="r">348</td><td class="r">97</td><td class="r b">12,485</td></tr>
+      <tr><td class="b">Sep 2025</td><td class="r">5,698</td><td class="r">2,115</td><td class="r">1,056</td><td class="r">101</td><td class="r">587</td><td class="r">149</td><td class="r b">9,706</td></tr>
+      <tr><td class="b">Oct 2025</td><td class="r">6,483</td><td class="r">2,612</td><td class="r">1,143</td><td class="r">119</td><td class="r">153</td><td class="r">168</td><td class="r b">10,678</td></tr>
+      <tr><td class="b">Nov 2025</td><td class="r">4,427</td><td class="r">1,317</td><td class="r">1,164</td><td class="r">95</td><td class="r">66</td><td class="r">73</td><td class="r b">7,142</td></tr>
+      <tr><td class="b">Dic 2025</td><td class="r">4,545</td><td class="r">2,387</td><td class="r">1,142</td><td class="r">260</td><td class="r">104</td><td class="r">101</td><td class="r b">8,539</td></tr>
+      <tr><td class="b">Ene 2026</td><td class="r">5,164</td><td class="r">7,457</td><td class="r">1,103</td><td class="r">282</td><td class="r">107</td><td class="r">136</td><td class="r b">14,249</td></tr>
+      <tr><td class="b">Feb 2026</td><td class="r">5,429</td><td class="r">8,613</td><td class="r">1,405</td><td class="r">1,202</td><td class="r">81</td><td class="r">66</td><td class="r b">16,796</td></tr>
+      <tr class="total">
+        <td>Total</td><td class="r">48,580</td><td class="r">29,798</td><td class="r">10,540</td><td class="r">2,664</td><td class="r">1,697</td><td class="r">952</td><td class="r">94,231</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Trend Alert -->
+<div class="insight">
+  <strong>Alerta de tendencia:</strong> Los decodificadores HD ONLY sin diagnóstico muestran un incremento acelerado: de 1,642 en julio 2025 a <strong>8,613 en febrero 2026</strong> (5.2x). Esto sugiere un cuello de botella creciente en el laboratorio de diagnóstico o un cambio en el proceso de registro. HD DVR también muestra un pico en febrero (1,202 vs promedio de ~209). Se recomienda investigar la capacidad del laboratorio y los cambios operativos en enero-febrero 2026.
+</div>
+
+<!-- Source Breakdown -->
+<h2>5. Distribución por Fuente de Datos</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Fuente</th><th class="r">Cantidad</th><th class="r">%</th><th>Observación</th></tr></thead>
+    <tbody>
+      <tr><td class="b">WMS</td><td class="r">70,705</td><td class="r">75.0%</td><td>Sistema de gestión de almacén — registra movimientos sin diagnóstico</td></tr>
+      <tr><td class="b">OSCM</td><td class="r">23,526</td><td class="r">25.0%</td><td>Sistema de cadena de suministro — transferencias y recepciones</td></tr>
+      <tr class="total"><td>Total</td><td class="r">94,231</td><td class="r">100%</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Recommendations -->
+<h2>6. Recomendaciones</h2>
+<div class="card" style="line-height: 1.7; font-size: 13px;">
+  <ol style="padding-left: 20px;">
+    <li><strong>Filtrar SIM y SC del análisis de diagnóstico:</strong> 59,120 transacciones (62.7%) corresponden a componentes pasivos que no requieren diagnóstico técnico. Considerar excluirlos del cálculo de tasa de diagnóstico para obtener métricas más precisas.</li>
+    <li style="margin-top: 8px;"><strong>Investigar el pico de HD ONLY sin diagnóstico en Ene-Feb 2026:</strong> El volumen se quintuplicó respecto a julio 2025. Verificar si es un retraso operativo o un cambio en el proceso de registro.</li>
+    <li style="margin-top: 8px;"><strong>Revisar 6,727 equipos en REPARACIÓN con falla "No Enciende" sin diagnóstico:</strong> Estos equipos fueron enviados a SCRAP sin un diagnóstico formal. Verificar si el proceso de scrap requiere un paso adicional de registro.</li>
+    <li style="margin-top: 8px;"><strong>Cerrar brecha en etapa DIAGNÓSTICO:</strong> 14,848 equipos están registrados como "en diagnóstico" pero sin resultado. Pueden ser equipos en cola, o registros incompletos que necesitan actualización.</li>
+  </ol>
+</div>
+
+<p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 24px;">
+  Generado por ExecAssistant &bull; Woden Group — Remanufactura Economía Circular &bull; Abril 2026
+</p>
+
+</div>
+</body>
+</html>

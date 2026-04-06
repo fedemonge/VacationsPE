@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       employeeCode,
-      fullName,
+      fullName: rawFullName,
+      firstName: rawFirstName,
+      lastName: rawLastName,
       email,
       hireDate,
       terminationDate,
@@ -64,6 +66,13 @@ export async function POST(request: NextRequest) {
       bankAccountNumber,
       shiftId,
     } = body;
+
+    // Compute fullName from firstName/lastName if provided, or use rawFullName
+    const firstName = (rawFirstName || "").trim();
+    const lastName = (rawLastName || "").trim();
+    const fullName = (firstName && lastName)
+      ? `${lastName} ${firstName}`
+      : rawFullName || `${lastName} ${firstName}`.trim();
 
     if (!employeeCode || !fullName || !email || !hireDate || !costCenter || !supervisorName || !supervisorEmail || !position) {
       return NextResponse.json(
@@ -91,6 +100,8 @@ export async function POST(request: NextRequest) {
       data: {
         employeeCode,
         fullName,
+        firstName,
+        lastName,
         email,
         hireDate: new Date(hireDate),
         terminationDate: terminationDate ? new Date(terminationDate) : null,

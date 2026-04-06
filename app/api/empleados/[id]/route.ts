@@ -38,7 +38,9 @@ export async function PATCH(
     const body = await request.json();
     const {
       employeeCode,
-      fullName,
+      fullName: rawFullName,
+      firstName: rawFirstName,
+      lastName: rawLastName,
       email,
       hireDate,
       terminationDate,
@@ -67,7 +69,19 @@ export async function PATCH(
 
     const data: Record<string, unknown> = {};
     if (employeeCode !== undefined) data.employeeCode = employeeCode;
-    if (fullName !== undefined) data.fullName = fullName;
+
+    // Handle firstName/lastName → fullName
+    const firstName = rawFirstName !== undefined ? (rawFirstName || "").trim() : undefined;
+    const lastName = rawLastName !== undefined ? (rawLastName || "").trim() : undefined;
+    if (firstName !== undefined) data.firstName = firstName;
+    if (lastName !== undefined) data.lastName = lastName;
+    // Recompute fullName when first/last change
+    if (firstName !== undefined || lastName !== undefined) {
+      const fn = firstName ?? "";
+      const ln = lastName ?? "";
+      if (fn || ln) data.fullName = `${ln} ${fn}`.trim();
+    }
+    if (rawFullName !== undefined && firstName === undefined && lastName === undefined) data.fullName = rawFullName;
     if (email !== undefined) data.email = email;
     if (hireDate !== undefined) data.hireDate = new Date(hireDate);
     if (terminationDate !== undefined)

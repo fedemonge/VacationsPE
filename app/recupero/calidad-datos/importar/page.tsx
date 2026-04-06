@@ -44,9 +44,14 @@ export default function ImportarCalidadPage() {
         method: 'POST',
         body: formData,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error importing file')
-      setResult(data)
+      let data: Record<string, unknown>
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(`Error del servidor (${res.status}). Revise los logs del servidor.`)
+      }
+      if (!res.ok) throw new Error((data.error as string) || 'Error importing file')
+      setResult(data as Parameters<typeof setResult>[0])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {

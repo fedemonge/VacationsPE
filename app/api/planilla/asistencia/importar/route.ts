@@ -7,8 +7,9 @@ import {
   parseAttendanceTXT,
   calculateDailyAttendance,
   matchEmployeeByName,
+  findSimilarEmployees,
 } from "@/lib/payroll/attendance-calculator";
-import type { ParsedAttendanceRow } from "@/lib/payroll/attendance-calculator";
+import type { ParsedAttendanceRow, UnmatchedEmployee } from "@/lib/payroll/attendance-calculator";
 
 /**
  * POST /api/planilla/asistencia/importar
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
-  const unmatchedNames = new Set<string>();
+  const unmatchedMap = new Map<string, number>(); // biometricName → row count
 
   // Group rows by employee name
   const groupedByName = new Map<string, typeof rows>();
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
   for (const [biometricName, empRows] of Array.from(groupedByName.entries())) {
     const matched = matchEmployeeByName(biometricName, employees);
     if (!matched) {
-      unmatchedNames.add(biometricName);
+      unmatchedMap.set(biometricName, empRows.length);
       skipped += empRows.length;
       continue;
     }
@@ -157,12 +158,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  console.log(`[ASISTENCIA] Import: ${imported} imported, ${skipped} skipped, ${unmatchedNames.size} unmatched`);
+  // Build unmatched report with fuzzy suggestions and pending rows
+  const unmatched: (UnmatchedEmployee & { rows: { employeeName: string; clockIn: string | null; clockOut: string | null; hoursWorked: number; date: string }[] })[] = [];
+  for (const [biometricName, rowCount] of Array.from(unmatchedMap.entries())) {
+    const suggestions = findSimilarEmployees(biometricName, employees);
+    const pendingRows = (groupedByName.get(biometricName) || []).map((r) => ({
+      employeeName: r.employeeName,
+      clockIn: r.clockIn?.toISOString() || null,
+      clockOut: r.clockOut?.toISOString() || null,
+      hoursWorked: r.hoursWorked,
+      date: r.date.toISOString(),
+    }));
+    unmatched.push({ biometricName, rowCount, suggestions, rows: pendingRows });
+  }
+
+  console.log(`[ASISTENCIA] Import: ${imported} imported, ${skipped} skipped, ${unmatched.length} unmatched`);
   return NextResponse.json({
     imported,
     skipped,
     errors,
-    unmatchedNames: Array.from(unmatchedNames),
+    unmatchedNames: Array.from(unmatchedMap.keys()),
+    unmatched,
     graceMinutesUsed: graceMinutes,
   });
 }

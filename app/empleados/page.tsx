@@ -15,6 +15,8 @@ interface Employee {
   id: string;
   employeeCode: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   hireDate: string;
   terminationDate: string | null;
@@ -45,6 +47,8 @@ interface Employee {
 const EMPTY_FORM = {
   employeeCode: "",
   fullName: "",
+  firstName: "",
+  lastName: "",
   email: "",
   hireDate: "",
   terminationDate: "",
@@ -152,6 +156,8 @@ export default function EmpleadosPage() {
     setForm({
       employeeCode: emp.employeeCode,
       fullName: emp.fullName,
+      firstName: emp.firstName || "",
+      lastName: emp.lastName || "",
       email: emp.email,
       hireDate: emp.hireDate.split("T")[0],
       terminationDate: emp.terminationDate ? emp.terminationDate.split("T")[0] : "",
@@ -185,11 +191,19 @@ export default function EmpleadosPage() {
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
-  function handleNewEmployee() {
+  async function handleNewEmployee() {
     if (showForm && !isEditing) {
       resetForm();
     } else {
       resetForm();
+      // Auto-suggest next employee code
+      try {
+        const res = await fetch("/api/empleados/next-code");
+        if (res.ok) {
+          const { nextCode } = await res.json();
+          setForm((prev) => ({ ...prev, employeeCode: nextCode }));
+        }
+      } catch { /* use empty */ }
       setShowForm(true);
     }
   }
@@ -430,14 +444,30 @@ export default function EmpleadosPage() {
               )}
             </div>
             <div>
-              <label className="label-field">Nombre Completo</label>
+              <label className="label-field">Apellidos</label>
               <input
                 type="text"
                 className="input-field"
-                value={form.fullName}
-                onChange={(e) =>
-                  setForm({ ...form, fullName: e.target.value })
-                }
+                placeholder="Ej: ESPINOZA PADILLA"
+                value={form.lastName}
+                onChange={(e) => {
+                  const lastName = e.target.value;
+                  setForm({ ...form, lastName, fullName: `${lastName} ${form.firstName}`.trim() });
+                }}
+                required
+              />
+            </div>
+            <div>
+              <label className="label-field">Nombres</label>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Ej: EDWARD JOEL"
+                value={form.firstName}
+                onChange={(e) => {
+                  const firstName = e.target.value;
+                  setForm({ ...form, firstName, fullName: `${form.lastName} ${firstName}`.trim() });
+                }}
                 required
               />
             </div>
@@ -689,7 +719,8 @@ export default function EmpleadosPage() {
           <thead>
             <tr>
               <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("employeeCode")}>Código{sortArrow("employeeCode")}</th>
-              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("fullName")}>Nombre{sortArrow("fullName")}</th>
+              <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("fullName")}>Apellidos{sortArrow("fullName")}</th>
+              <th className="table-header">Nombres</th>
               <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("email")}>Email{sortArrow("email")}</th>
               <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("position")}>Cargo{sortArrow("position")}</th>
               <th className="table-header cursor-pointer select-none hover:bg-woden-primary-hover" onClick={() => handleSort("costCenter")}>Centro de Costos{sortArrow("costCenter")}</th>
@@ -702,13 +733,13 @@ export default function EmpleadosPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="table-cell text-center text-gray-400">
+                <td colSpan={10} className="table-cell text-center text-gray-400">
                   Cargando...
                 </td>
               </tr>
             ) : employees.length === 0 ? (
               <tr>
-                <td colSpan={9} className="table-cell text-center text-gray-400">
+                <td colSpan={10} className="table-cell text-center text-gray-400">
                   No hay empleados registrados
                 </td>
               </tr>
@@ -723,7 +754,8 @@ export default function EmpleadosPage() {
                   <td className="table-cell font-mono text-xs">
                     {emp.employeeCode}
                   </td>
-                  <td className="table-cell font-medium">{emp.fullName}</td>
+                  <td className="table-cell font-medium">{emp.lastName || emp.fullName}</td>
+                  <td className="table-cell">{emp.firstName}</td>
                   <td className="table-cell text-gray-500">{emp.email}</td>
                   <td className="table-cell">{emp.position}</td>
                   <td className="table-cell">

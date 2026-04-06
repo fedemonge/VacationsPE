@@ -69,6 +69,7 @@ const navGroups: NavGroup[] = [
       { href: "/planilla/asistencia", label: "Asistencia" },
       { href: "/planilla/batches", label: "Lotes de Pago" },
       { href: "/planilla/excepciones", label: "Excepciones" },
+      { href: "/planilla/validacion", label: "Validación Planilla" },
     ],
   },
   {
@@ -98,6 +99,40 @@ const navGroups: NavGroup[] = [
           { href: "/recupero/calidad-datos/importar", label: "Importar Base Clientes" },
           { href: "/recupero/calidad-datos/dashboard", label: "Dashboard Interno" },
           { href: "/recupero/calidad-datos/reporte", label: "Reporte Cliente" },
+        ],
+      },
+      {
+        heading: "Rutas",
+        items: [
+          { href: "/recupero/rutas", label: "Programación de Rutas" },
+          { href: "/recupero/rutas/configuracion", label: "Configuración" },
+          { href: "/recupero/rutas/importar", label: "Importar Agendas" },
+          { href: "/recupero/cobertura", label: "Cobertura de Bases" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Remanufactura",
+    megaMenu: true,
+    sections: [
+      {
+        heading: "Análisis",
+        items: [
+          { href: "/remanufactura", label: "Dashboard" },
+          { href: "/remanufactura/reportes", label: "Reportes" },
+          { href: "/remanufactura/importar", label: "Importar Datos" },
+        ],
+      },
+      {
+        heading: "MRP",
+        items: [
+          { href: "/remanufactura/mrp", label: "Dashboard MRP" },
+          { href: "/remanufactura/mrp/datos-maestros", label: "Datos Maestros" },
+          { href: "/remanufactura/mrp/planificacion", label: "Planificación" },
+          { href: "/remanufactura/mrp/corridas", label: "Corridas MRP" },
+          { href: "/remanufactura/mrp/reportes", label: "Reportes MRP" },
+          { href: "/remanufactura/mrp/configuracion", label: "Configuración" },
         ],
       },
     ],
@@ -280,6 +315,7 @@ export default function Header() {
   const pathname = usePathname();
 
   function getSectionName(): string {
+    if (pathname?.startsWith("/remanufactura")) return "Remanufactura";
     if (pathname?.startsWith("/recupero")) return "Recupero";
     if (pathname?.startsWith("/fec")) return "FEC";
     if (pathname?.startsWith("/planilla")) return "Planilla Peru";

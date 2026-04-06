@@ -11,6 +11,8 @@ model Employee {
   id              String    @id @default(uuid())
   employeeCode    String    @unique
   fullName        String
+  firstName       String    @default("")
+  lastName        String    @default("")
   email           String    @unique
   hireDate        DateTime
   terminationDate DateTime?
@@ -811,4 +813,582 @@ model ClientDataRecord {
   @@index([hasValidPhone])
   @@index([hasValidCoords])
   @@index([hasValidAddress])
+}
+
+// ==========================================
+// Route Optimization (Rutas)
+// ==========================================
+
+model RutaConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String   @default("")
+  updatedAt   DateTime @updatedAt
+  updatedBy   String   @default("system")
+}
+
+model RutaAgente {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  latInicio Float
+  lonInicio Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rutas RutaProgramacion[]
+
+  @@index([isActive])
+}
+
+model ScoreAgendaImport {
+  id              String   @id @default(uuid())
+  fileName        String
+  totalRows       Int      @default(0)
+  importedRows    Int      @default(0)
+  errorRows       Int      @default(0)
+  importedByEmail String?
+  importedByName  String?
+  createdAt       DateTime @default(now())
+
+  records ScoreAgendaRecord[]
+
+  @@index([createdAt])
+}
+
+model ScoreAgendaRecord {
+  id                   String    @id @default(uuid())
+  importId             String
+  sot                  String?
+  codCliente           String?
+  dni                  String?
+  cliente              String?
+  direccion            String?
+  distrito             String?
+  provincia            String?
+  departamento         String?
+  tipoBaja             String?
+  tecnologia           String?
+  tipoAdquisicion      String?
+  tipoProducto         String?
+  cantidadEquipos      Int       @default(1)
+  tipoBase             String?
+  mesBase              String?
+  proyecto             String?
+  telefonoContactado   String?
+  idCall               String?
+  skill                String?
+  idAgente             String?
+  agenteNombre         String?
+  resultadoMarcacion   String?
+  novedadGeneral       String?
+  tipificacion         String?
+  tipificacionHist     String?
+  fechaGestion         DateTime?
+  comentarios          String?
+  direccionActualizada String?
+  referencia           String?
+  distritoAgenda       String?
+  provinciaAgenda      String?
+  departamentoAgenda   String?
+  fechaAgenda          DateTime?
+  horarioAgenda        String?
+  telefonoReferencia   String?
+  latitud              Float?
+  longitud             Float?
+  rangoHorario         String?
+  tipoAgenda           String?
+  rawData              String    @default("{}")
+  createdAt            DateTime  @default(now())
+
+  import ScoreAgendaImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([fechaAgenda])
+  @@index([proyecto])
+  @@index([departamento])
+  @@index([codCliente])
+}
+
+model RutaProgramacion {
+  id               String   @id @default(uuid())
+  agenteId         String
+  fecha            DateTime
+  totalVisitas     Int      @default(0)
+  totalDistanciaKm Float    @default(0)
+  totalTiempoMin   Float    @default(0)
+  status           String   @default("GENERADA")
+  generadoPorEmail String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agente  RutaAgente @relation(fields: [agenteId], references: [id])
+  paradas RutaParada[]
+
+  @@index([agenteId])
+  @@index([fecha])
+  @@index([status])
+}
+
+model RutaParada {
+  id                       String   @id @default(uuid())
+  rutaId                   String
+  secuencia                Int
+  periodo                  String
+  esAgendada               Boolean  @default(false)
+  sourceType               String
+  sourceId                 String?
+  sot                      String?
+  codCliente               String?
+  cliente                  String?
+  direccion                String?
+  distrito                 String?
+  departamento             String?
+  latitud                  Float?
+  longitud                 Float?
+  telefono                 String?
+  distanciaDesdeAnteriorKm Float    @default(0)
+  tiempoViajeMin           Float    @default(0)
+  duracionVisitaMin        Float    @default(10)
+  horaEstimadaLlegada      String?
+  horaEstimadaSalida       String?
+  createdAt                DateTime @default(now())
+
+  ruta RutaProgramacion @relation(fields: [rutaId], references: [id], onDelete: Cascade)
+
+  @@index([rutaId])
+  @@index([secuencia])
+}
+
+model RutaExportConfig {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  fieldOrder String
+  delimiter String   @default(",")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Remanufactura (Economía Circular)
+// ==========================================
+
+model RemanufacturaImport {
+  id              String   @id @default(uuid())
+  source          String   // "OSCM" | "WMS"
+  fileName        String
+  totalRows       Int      @default(0)
+  importedRows    Int      @default(0)
+  errorRows       Int      @default(0)
+  importedByEmail String?
+  importedByName  String?
+  createdAt       DateTime @default(now())
+
+  transacciones RemanufacturaTransaccion[]
+
+  @@index([source])
+  @@index([createdAt])
+}
+
+model RemanufacturaTransaccion {
+  id                        String    @id @default(uuid())
+  importId                  String
+  source                    String    // "OSCM" | "WMS"
+
+  // Core fields
+  fechaTransaccion          DateTime?
+  transaccionId             String?
+  tipoTransaccion           String?
+  numeroEnvio               String?
+  numeroSerie               String?   // Equipment serial number (key for tracking)
+
+  // Equipment classification
+  codigoCategoria           String?   // e.g. "DECO"
+  familiaEquipo             String?   // e.g. "HD ONLY", "HD DVR"
+
+  // Normalized client name (IQ Electronics/Woden/DirecTV → DIRECTV)
+  clienteNormalizado        String?
+
+  // Organization movement
+  orgOrigen                 String?
+  nombreOrgOrigen           String?
+  subinvOrigen              String?
+  locatorOrigen             String?
+  orgDestino                String?
+  nombreOrgDestino          String?
+  subinvDestino             String?
+  locatorDestino            String?
+
+  // Diagnosis & Repair
+  estado                    String?
+  falla                     String?   // OXIDO, NO_ENCIENDE, NO_RECIBE_SENAL, etc.
+  etapa                     String?   // INGRESO, DIAGNOSTICO, REPARACION, SALIDA
+  resultadoDiagnostico      String?   // SIN_FALLA, CON_FALLA
+
+  // Quantities & references
+  elementosTransaccionados  Int       @default(0)
+  referenciaTransaccion     String?
+  usuario                   String?
+
+  // Equipment identifiers
+  smartCardSerial           String?
+  macAddress                String?
+  ibsAccountNumber          String?
+  ridNumber                 String?
+
+  // Raw data for unmapped fields
+  rawData                   String    @default("{}")
+
+  import RemanufacturaImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([numeroSerie])
+  @@index([fechaTransaccion])
+  @@index([tipoTransaccion])
+  @@index([orgDestino])
+  @@index([falla])
+  @@index([etapa])
+  @@index([familiaEquipo])
+  @@index([source])
+  @@index([clienteNormalizado])
+}
+
+// ==========================================
+// MRP — Material Requirements Planning
+// ==========================================
+
+model MrpEquipment {
+  id               String  @id @default(uuid())
+  code             String  @unique
+  name             String
+  description      String?
+  category         String?
+  recoveryYieldPct Float   @default(0)
+  bomBaseQty       Float   @default(1)  // How many finished units 1 BOM set produces
+  isActive         Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  equipmentRutas    MrpEquipmentRuta[]
+  bomItems          MrpBomItem[] @relation("EquipmentBom")
+  usedAsSubAssembly MrpBomItem[] @relation("SubAssembly")
+  demandForecasts   MrpDemandForecast[]
+  recoveryForecasts MrpRecoveryForecast[]
+  productionPlans   MrpProductionPlan[]
+}
+
+model MrpUnitOfMeasure {
+  id           String  @id @default(uuid())
+  code         String  @unique
+  name         String
+  abbreviation String
+  isActive     Boolean @default(true)
+}
+
+// Independent Material Master — catalog of all raw materials and components
+model MrpMaterial {
+  id               String  @id @default(uuid())
+  code             String  @unique
+  name             String
+  description      String?
+  unitOfMeasure    String  @default("unit")
+  unitCost         Float   @default(0)
+  costPerQty       Float   @default(1)  // Price is per this many units (e.g., 1=per unit, 1000=per 1000 units)
+  leadTimeDays     Int     @default(0)
+  safetyStockQty   Float   @default(0)
+  abcClass         String?
+  recoveryYieldPct Float?
+  isRecoverable    Boolean @default(false)
+  isActive         Boolean @default(true)
+
+  mainSupplierId   String?
+  mainSupplier     MrpSupplier? @relation("MainSupplier", fields: [mainSupplierId], references: [id])
+
+  backupSupplierId String?
+  backupSupplier   MrpSupplier? @relation("BackupSupplier", fields: [backupSupplierId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bomItems           MrpBomItem[]
+  supplierItems      MrpSupplierItem[]
+  inventorySnapshots MrpInventorySnapshot[]
+  purchasePlans      MrpPurchasePlan[]
+
+  @@index([mainSupplierId])
+  @@index([backupSupplierId])
+}
+
+// BOM — links Equipment to Materials OR sub-assembly Equipment
+model MrpBomItem {
+  id              String @id @default(uuid())
+  quantityPerUnit Float  @default(1)
+  qtyPer          Float  @default(1)  // This quantity is per how many equipment units (1, 100, 1000...)
+
+  equipmentId String
+  equipment   MrpEquipment @relation("EquipmentBom", fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  // Either a material OR a child equipment (sub-assembly), not both
+  materialId       String?
+  material         MrpMaterial?  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  childEquipmentId String?
+  childEquipment   MrpEquipment? @relation("SubAssembly", fields: [childEquipmentId], references: [id])
+
+  parentBomItemId String?
+  parentBomItem   MrpBomItem?  @relation("BomHierarchy", fields: [parentBomItemId], references: [id])
+  children        MrpBomItem[] @relation("BomHierarchy")
+  @@index([equipmentId])
+  @@index([materialId])
+  @@index([parentBomItemId])
+}
+
+model MrpSubProcess {
+  id                 String  @id @default(uuid())
+  code               String  @unique
+  name               String
+  description        String?
+  defaultSequence    Int     @default(0)
+  capacityPerHour    Float   @default(1)
+  stationCount       Int     @default(1)   // Number of physical workstations
+  personnelPerStation Int    @default(1)   // People needed per station
+  requiresSpecialist Boolean @default(false)
+  isActive           Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rutaSteps       MrpRutaStep[]
+  productionPlans MrpProductionPlan[]
+}
+
+model MrpRuta {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps        MrpRutaStep[] @relation("RutaSteps")
+  referencedBy MrpRutaStep[] @relation("RutaChildren")
+  equipmentRutas MrpEquipmentRuta[]
+}
+
+// Junction: assigns one or more Rutas to an Equipment in sequence
+model MrpEquipmentRuta {
+  id            String @id @default(uuid())
+  sequenceOrder Int
+
+  equipmentId String
+  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  rutaId String
+  ruta   MrpRuta @relation(fields: [rutaId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, rutaId])
+  @@index([equipmentId])
+}
+
+model MrpRutaStep {
+  id                String  @id @default(uuid())
+  sequenceOrder     Int
+  laborHoursPerUnit Float   @default(0)
+  isParallel        Boolean @default(false)
+
+  rutaId       String
+  ruta         MrpRuta       @relation("RutaSteps", fields: [rutaId], references: [id], onDelete: Cascade)
+
+  // Either a sub-process step OR a reference to another ruta (composable)
+  subProcessId String?
+  subProcess   MrpSubProcess? @relation(fields: [subProcessId], references: [id], onDelete: Cascade)
+
+  childRutaId  String?
+  childRuta    MrpRuta?       @relation("RutaChildren", fields: [childRutaId], references: [id])
+
+  @@index([rutaId])
+  @@index([childRutaId])
+}
+
+model MrpSupplier {
+  id          String  @id @default(uuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  country     String?
+  currency    String  @default("USD")
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplierItems      MrpSupplierItem[]
+  mainMaterials      MrpMaterial[] @relation("MainSupplier")
+  backupMaterials    MrpMaterial[] @relation("BackupSupplier")
+}
+
+model MrpSupplierItem {
+  id              String  @id @default(uuid())
+  unitOfMeasure   String  @default("unit")
+  purchaseUnit    String?
+  purchaseUnitQty Float   @default(1)
+  unitCost        Float   @default(0)
+  moq             Float   @default(1)
+  isPreferred     Boolean @default(false)
+
+  supplierId  String
+  supplier    MrpSupplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  materialId  String
+  material    MrpMaterial  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  purchasePlans MrpPurchasePlan[]
+
+  @@unique([supplierId, materialId])
+  @@index([materialId])
+}
+
+model MrpShiftConfig {
+  id             String  @id @default(uuid())
+  name           String
+  startTime      String
+  endTime        String
+  costMultiplier Float   @default(1.0)
+  isActive       Boolean @default(true)
+
+  productionPlans MrpProductionPlan[]
+}
+
+model MrpWorkingCalendar {
+  id          String  @id @default(uuid())
+  month       Int
+  year        Int
+  workingDays Int     @default(22)
+  holidays    String?
+
+  @@unique([month, year])
+}
+
+model MrpDemandForecast {
+  id       String @id @default(uuid())
+  month    Int
+  year     Int
+  quantity Float
+
+  equipmentId String
+  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  uploadedAt      DateTime @default(now())
+  uploadedByEmail String?
+
+  @@unique([equipmentId, month, year])
+  @@index([month, year])
+}
+
+model MrpInventorySnapshot {
+  id             String @id @default(uuid())
+  quantityOnHand Float
+  month          Int
+  year           Int
+
+  materialId String
+  material   MrpMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  uploadedAt      DateTime @default(now())
+  uploadedByEmail String?
+
+  @@unique([materialId, month, year])
+  @@index([month, year])
+}
+
+model MrpRecoveryForecast {
+  id            String @id @default(uuid())
+  month         Int
+  year          Int
+  incomingUnits Float
+
+  equipmentId String
+  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  uploadedAt      DateTime @default(now())
+  uploadedByEmail String?
+
+  @@unique([equipmentId, month, year])
+  @@index([month, year])
+}
+
+model MrpRun {
+  id            String  @id @default(uuid())
+  name          String
+  startMonth    Int
+  startYear     Int
+  horizonMonths Int     @default(12)
+  status        String  @default("DRAFT")
+  notes         String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByEmail  String?
+
+  purchasePlans   MrpPurchasePlan[]
+  productionPlans MrpProductionPlan[]
+}
+
+model MrpPurchasePlan {
+  id                  String    @id @default(uuid())
+  month               Int
+  year                Int
+  inventoryInitial    Float     @default(0)
+  quantityNeeded      Float
+  quantityRecovered   Float     @default(0)
+  quantityToPurchase  Float
+  inventoryFinal      Float     @default(0)
+  productionOutput    Float     @default(0)
+  orderDate           DateTime?
+  deliveryDate        DateTime?
+  unitCost            Float     @default(0)
+  totalCost           Float     @default(0)
+
+  mrpRunId String
+  mrpRun   MrpRun @relation(fields: [mrpRunId], references: [id], onDelete: Cascade)
+
+  materialId String
+  material   MrpMaterial @relation(fields: [materialId], references: [id])
+
+  supplierItemId String?
+  supplierItem   MrpSupplierItem? @relation(fields: [supplierItemId], references: [id])
+
+  @@index([mrpRunId])
+  @@index([month, year])
+}
+
+model MrpProductionPlan {
+  id                 String  @id @default(uuid())
+  month              Int
+  year               Int
+  unitsToProcess     Float
+  laborHoursRequired Float
+  headcountRequired  Float
+  isSpecialist       Boolean @default(false)
+
+  mrpRunId String
+  mrpRun   MrpRun @relation(fields: [mrpRunId], references: [id], onDelete: Cascade)
+
+  equipmentId String
+  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id])
+
+  subProcessId String
+  subProcess   MrpSubProcess @relation(fields: [subProcessId], references: [id])
+
+  shiftId String?
+  shift   MrpShiftConfig? @relation(fields: [shiftId], references: [id])
+
+  @@index([mrpRunId])
+  @@index([month, year])
 }

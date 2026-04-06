@@ -67,9 +67,9 @@ export function parseAttendanceCSV(csvContent: string): ParsedAttendanceRow[] {
   const headers = headerLine.split(",").map((h) => h.trim().toLowerCase());
 
   // Map column indices
-  const colEmpleado = headers.findIndex((h) => h.includes("empleado") || h.includes("employee"));
-  const colEntrada = headers.findIndex((h) => h.includes("entrada") || h.includes("entry") || h === "entrada");
-  const colSalida = headers.findIndex((h) => h.includes("salida") || h === "salida");
+  const colEmpleado = headers.findIndex((h) => h.includes("empleado") || h.includes("employee") || h.includes("nombre"));
+  const colEntrada = headers.findIndex((h) => h.includes("entrada") || h.includes("entry") || h.includes("check in") || h.includes("check_in") || h.includes("checkin"));
+  const colSalida = headers.findIndex((h) => h.includes("salida") || h.includes("check out") || h.includes("check_out") || h.includes("checkout"));
   const colHoras = headers.findIndex((h) => h.includes("horas trabajadas") || h.includes("hours worked") || h.includes("horas"));
 
   if (colEmpleado === -1 || colEntrada === -1) {
@@ -93,7 +93,11 @@ export function parseAttendanceCSV(csvContent: string): ParsedAttendanceRow[] {
 
     const clockIn = parseDatetime(entradaStr);
     const clockOut = parseDatetime(salidaStr);
-    const hoursWorked = parseFloat(horasStr) || 0;
+    // Calculate hours from timestamps if no hours column, or if hours column is empty/zero
+    let hoursWorked = parseFloat(horasStr) || 0;
+    if (hoursWorked === 0 && clockIn && clockOut && clockOut.getTime() > clockIn.getTime()) {
+      hoursWorked = round2((clockOut.getTime() - clockIn.getTime()) / 3600000);
+    }
 
     // Skip rows where hours = 0 and clockIn equals clockOut (auto-close)
     if (hoursWorked === 0 && clockIn && clockOut && clockIn.getTime() === clockOut.getTime()) {
@@ -121,24 +125,58 @@ export function parseAttendanceXLSX(buffer: ArrayBuffer): ParsedAttendanceRow[] 
   if (!sheetName) return [];
 
   const sheet = workbook.Sheets[sheetName];
-  const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+  // Try default parse first
+  let jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
   if (jsonRows.length === 0) return [];
 
   // Detect columns by header name (keys)
-  const firstRow = jsonRows[0];
-  const keys = Object.keys(firstRow);
+  let firstRow = jsonRows[0];
+  let keys = Object.keys(firstRow);
+
+  // If first row keys don't look like attendance headers (e.g. title row like "Attendance sheet from..."),
+  // scan for the actual header row and re-parse with correct range
+  const hasEmployeeCol = keys.some((k) => {
+    const kl = k.toLowerCase();
+    return kl.includes("empleado") || kl.includes("employee") || kl.includes("nombre");
+  });
+  if (!hasEmployeeCol) {
+    // Read as raw array to find header row
+    const rawRows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+      const rowStr = rawRows[i].map((c) => String(c).toLowerCase()).join(" ");
+      if (rowStr.includes("employee") || rowStr.includes("empleado") || rowStr.includes("nombre")) {
+        headerRowIdx = i;
+        break;
+      }
+    }
+    if (headerRowIdx === -1) return [];
+
+    // Re-parse using the correct header row
+    const ref = sheet["!ref"];
+    if (!ref) return [];
+    const range = XLSX.utils.decode_range(ref);
+    range.s.r = headerRowIdx; // start from header row
+    const newRef = XLSX.utils.encode_range(range);
+    const clonedSheet = Object.assign({}, sheet, { "!ref": newRef });
+    jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(clonedSheet, { defval: "" });
+    if (jsonRows.length === 0) return [];
+    firstRow = jsonRows[0];
+    keys = Object.keys(firstRow);
+  }
 
   const colEmpleado = keys.find((k) => {
     const kl = k.toLowerCase();
-    return kl.includes("empleado") || kl.includes("employee");
+    return kl.includes("empleado") || kl.includes("employee") || kl.includes("nombre");
   });
   const colEntrada = keys.find((k) => {
     const kl = k.toLowerCase();
-    return kl.includes("entrada") || kl.includes("entry");
+    return kl.includes("entrada") || kl.includes("entry") || kl.includes("check in") || kl.includes("check_in") || kl.includes("checkin");
   });
   const colSalida = keys.find((k) => {
     const kl = k.toLowerCase();
-    return kl.includes("salida");
+    return kl.includes("salida") || kl.includes("check out") || kl.includes("check_out") || kl.includes("checkout");
   });
   const colHoras = keys.find((k) => {
     const kl = k.toLowerCase();
@@ -158,7 +196,11 @@ export function parseAttendanceXLSX(buffer: ArrayBuffer): ParsedAttendanceRow[] 
 
     const clockIn = parseXLSXDate(row[colEntrada]);
     const clockOut = colSalida ? parseXLSXDate(row[colSalida]) : null;
-    const hoursWorked = colHoras ? parseFloat(String(row[colHoras])) || 0 : 0;
+    // Calculate hours from timestamps if no hours column or value is zero
+    let hoursWorked = colHoras ? parseFloat(String(row[colHoras])) || 0 : 0;
+    if (hoursWorked === 0 && clockIn && clockOut && clockOut.getTime() > clockIn.getTime()) {
+      hoursWorked = round2((clockOut.getTime() - clockIn.getTime()) / 3600000);
+    }
 
     if (hoursWorked === 0 && clockIn && clockOut && clockIn.getTime() === clockOut.getTime()) {
       continue;
@@ -393,6 +435,110 @@ function normalizeName(name: string): string {
     .replace(/[^A-Z\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// ── Fuzzy Matching / Suggestions ─────────────────────────────────────
+
+export interface EmployeeSuggestion {
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  score: number;
+  matchType: string; // "inverted" | "partial" | "similar"
+}
+
+export interface UnmatchedEmployee {
+  biometricName: string;
+  rowCount: number;
+  suggestions: EmployeeSuggestion[];
+}
+
+/**
+ * Find similar employees for an unmatched biometric name.
+ * Checks inverted name order, partial token overlap, and Levenshtein similarity.
+ */
+export function findSimilarEmployees<T extends { id: string; employeeCode: string; fullName: string }>(
+  biometricName: string,
+  employees: T[],
+  maxSuggestions: number = 5
+): EmployeeSuggestion[] {
+  const bioNorm = normalizeName(biometricName);
+  if (!bioNorm) return [];
+  const bioTokens = bioNorm.split(/\s+/);
+
+  const suggestions: EmployeeSuggestion[] = [];
+
+  for (const emp of employees) {
+    const empNorm = normalizeName(emp.fullName);
+    const empTokens = empNorm.split(/\s+/);
+
+    // 1. Inverted name match (last-first vs first-last)
+    if (bioTokens.length >= 2 && empTokens.length >= 2) {
+      const bioReversed = [...bioTokens].reverse().join(" ");
+      if (bioReversed === empNorm) {
+        suggestions.push({
+          employeeId: emp.id,
+          employeeCode: emp.employeeCode,
+          fullName: emp.fullName,
+          score: 95,
+          matchType: "inverted",
+        });
+        continue;
+      }
+    }
+
+    // 2. Partial token overlap (at least 2 tokens match)
+    const commonTokens = bioTokens.filter((t) => empTokens.includes(t));
+    const totalTokens = Math.max(bioTokens.length, empTokens.length);
+    if (commonTokens.length >= 2) {
+      const overlapScore = Math.round((commonTokens.length / totalTokens) * 100);
+      if (overlapScore >= 40) {
+        suggestions.push({
+          employeeId: emp.id,
+          employeeCode: emp.employeeCode,
+          fullName: emp.fullName,
+          score: overlapScore,
+          matchType: "partial",
+        });
+        continue;
+      }
+    }
+
+    // 3. Levenshtein similarity on full normalized name
+    const distance = levenshtein(bioNorm, empNorm);
+    const maxLen = Math.max(bioNorm.length, empNorm.length);
+    const similarity = maxLen > 0 ? Math.round((1 - distance / maxLen) * 100) : 0;
+    if (similarity >= 60) {
+      suggestions.push({
+        employeeId: emp.id,
+        employeeCode: emp.employeeCode,
+        fullName: emp.fullName,
+        score: similarity,
+        matchType: "similar",
+      });
+    }
+  }
+
+  // Sort by score descending, take top N
+  suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.slice(0, maxSuggestions);
+}
+
+/** Simple Levenshtein distance */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

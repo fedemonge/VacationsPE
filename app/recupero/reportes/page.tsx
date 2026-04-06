@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 
@@ -72,8 +72,10 @@ export default function RecuperoReportesPage() {
   const now = new Date();
   const [activeTab, setActiveTab] = useState<ReportTab>("effectiveness");
   const [data, setData] = useState<unknown[]>([]);
+  const [gestionables, setGestionables] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
   // Filters
   const [year, setYear] = useState(now.getFullYear());
@@ -126,6 +128,7 @@ export default function RecuperoReportesPage() {
       if (!res.ok) throw new Error("Error al cargar reporte");
       const json = await res.json();
       setData(json.tasks || json.agents || json.data || []);
+      setGestionables(json.gestionables || {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
       setData([]);
@@ -304,65 +307,171 @@ export default function RecuperoReportesPage() {
     </table>
   );
 
-  const renderEffectivenessTable = (records: AgentRecord[]) => (
-    <>
-      <table className="min-w-full divide-y divide-gray-200 text-xs">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-2 py-2 text-left font-medium text-gray-500">Agente</th>
-            <th className="px-2 py-2 text-left font-medium text-gray-500">Depto</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">Efect.</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">Exit.</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">No Exit.*</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">Quem.</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">Equipos</th>
-            <th className="px-2 py-2 text-right font-medium text-gray-500">F.Uso</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {records.map((r) => {
-            const total = r.total ?? 0;
-            const exitosas = r.exitosas ?? 0;
-            const quemadas = r.quemadas ?? 0;
-            const noExInclQ = total - exitosas;
-            const efectividad = total > 0 ? (exitosas / total) * 100 : 0;
-            const equipos = (r as AgentRecord & { equipos?: number }).equipos ?? 0;
-            const factorUso = (r as AgentRecord & { factorDeUso?: number }).factorDeUso ?? 0;
-            return (
-              <tr key={r.agenteCampo} className="hover:bg-gray-50">
-                <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
-                <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{(r as AgentRecord & { departamento?: string }).departamento || "—"}</td>
-                <td className="px-2 py-1.5 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <div className="w-14 bg-gray-200 rounded-full h-1.5">
-                      <div
-                        className={`h-1.5 rounded-full ${efectividad >= 50 ? "bg-green-500" : efectividad >= 25 ? "bg-yellow-500" : "bg-red-500"}`}
-                        style={{ width: `${Math.min(efectividad, 100)}%` }}
-                      />
-                    </div>
-                    <span className={`font-bold ${efectividad >= 50 ? "text-green-700" : efectividad >= 25 ? "text-yellow-700" : "text-red-700"}`}>
-                      {efectividad.toFixed(1)}%
-                    </span>
-                  </div>
-                </td>
-                <td className="px-2 py-1.5 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right text-red-600">{noExInclQ.toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right text-gray-800 font-medium">{quemadas.toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right text-blue-700 font-medium">{equipos.toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{factorUso.toFixed(1)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <p className="px-4 py-2 text-[10px] text-gray-400 border-t">
-        * No Exitosas incluye Quemadas. Quemadas = gestión no exitosa con cierre a {">"} 500m del punto de visita.
-        {" "}Total Asignadas = Exitosas + No Exitosas. Efectividad = Exitosas / Total Asignadas.
-      </p>
-    </>
-  );
+  const toggleDept = (dept: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(dept)) next.delete(dept); else next.add(dept);
+      return next;
+    });
+  };
+
+  const renderEffectivenessTable = (records: AgentRecord[]) => {
+    type ExtAgent = AgentRecord & { equipos?: number; factorDeUso?: number };
+
+    // Group by department
+    const deptMap = new Map<string, ExtAgent[]>();
+    for (const r of records) {
+      const dept = (r as ExtAgent & { departamento?: string }).departamento || "SIN DEPARTAMENTO";
+      if (!deptMap.has(dept)) deptMap.set(dept, []);
+      deptMap.get(dept)!.push(r as ExtAgent);
+    }
+
+    const deptSummaries = Array.from(deptMap.entries()).map(([dept, agents]) => {
+      const total = agents.reduce((s, a) => s + (a.total ?? 0), 0);
+      const exitosas = agents.reduce((s, a) => s + (a.exitosas ?? 0), 0);
+      const quemadas = agents.reduce((s, a) => s + (a.quemadas ?? 0), 0);
+      const equipos = agents.reduce((s, a) => s + (a.equipos ?? 0), 0);
+      const efectividad = total > 0 ? (exitosas / total) * 100 : 0;
+      const factorUso = exitosas > 0 ? Math.round((equipos / exitosas) * 10) / 10 : 0;
+      const gest = gestionables[dept] ?? 0;
+      agents.sort((a, b) => (b.exitosas ?? 0) - (a.exitosas ?? 0));
+      return { dept, agents, total, exitosas, noExitosas: total - exitosas, quemadas, equipos, efectividad, factorUso, gestionables: gest };
+    });
+    deptSummaries.sort((a, b) => b.total - a.total);
+
+    const deptNames = deptSummaries.map((d) => d.dept);
+    const allExpanded = deptNames.every((d) => expandedDepts.has(d));
+    const totalGest = deptSummaries.reduce((s, d) => s + d.gestionables, 0);
+
+    return (
+      <>
+        <div className="px-4 py-2 bg-gray-50 border-b flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {deptSummaries.length} departamento{deptSummaries.length !== 1 ? "s" : ""} &middot; {records.length} agente{records.length !== 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => setExpandedDepts(allExpanded ? new Set() : new Set(deptNames))}
+            className="text-xs text-[#EA7704] hover:text-[#d06a03] font-medium"
+          >
+            {allExpanded ? "Colapsar todos" : "Expandir todos"}
+          </button>
+        </div>
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-2 py-2 text-left font-medium text-gray-500 w-8"></th>
+              <th className="px-2 py-2 text-left font-medium text-gray-500">Departamento / Agente</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Gestionables**</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Total</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">% Gest.</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Efect.</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Exit.</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">No Exit.*</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Quem.</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">Equipos</th>
+              <th className="px-2 py-2 text-right font-medium text-gray-500">F.Uso</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {deptSummaries.map((ds) => {
+              const isExpanded = expandedDepts.has(ds.dept);
+              return (
+                <Fragment key={ds.dept}>
+                  <tr className="bg-gray-50 hover:bg-gray-100 cursor-pointer select-none" onClick={() => toggleDept(ds.dept)}>
+                    <td className="px-2 py-2 text-center">
+                      <svg className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </td>
+                    <td className="px-2 py-2 font-bold text-gray-900 whitespace-nowrap">
+                      {ds.dept}
+                      <span className="ml-2 text-[10px] font-normal text-gray-500">({ds.agents.length} agente{ds.agents.length !== 1 ? "s" : ""})</span>
+                    </td>
+                    <td className="px-2 py-2 text-right font-bold text-orange-600">{ds.gestionables > 0 ? ds.gestionables.toLocaleString() : "—"}</td>
+                    <td className="px-2 py-2 text-right text-gray-900 font-bold">{ds.total.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right">
+                      {(() => { const base = ds.gestionables + ds.total; const pct = base > 0 ? (ds.total / base) * 100 : 0; return (
+                        <span className={`font-bold ${pct >= 80 ? "text-green-700" : pct >= 50 ? "text-yellow-700" : "text-red-700"}`}>{pct.toFixed(1)}%</span>
+                      ); })()}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <div className="w-14 bg-gray-300 rounded-full h-1.5">
+                          <div className={`h-1.5 rounded-full ${ds.efectividad >= 50 ? "bg-green-500" : ds.efectividad >= 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(ds.efectividad, 100)}%` }} />
+                        </div>
+                        <span className={`font-bold ${ds.efectividad >= 50 ? "text-green-700" : ds.efectividad >= 25 ? "text-yellow-700" : "text-red-700"}`}>{ds.efectividad.toFixed(1)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 text-right text-green-700 font-bold">{ds.exitosas.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right text-red-600 font-bold">{ds.noExitosas.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right text-gray-800 font-bold">{ds.quemadas.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right text-blue-700 font-bold">{ds.equipos.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right text-blue-600 font-bold">{ds.factorUso.toFixed(1)}</td>
+                  </tr>
+                  {isExpanded && ds.agents.map((r) => {
+                    const total = r.total ?? 0;
+                    const exitosas = r.exitosas ?? 0;
+                    const quemadas = r.quemadas ?? 0;
+                    const noExInclQ = total - exitosas;
+                    const efectividad = total > 0 ? (exitosas / total) * 100 : 0;
+                    const equipos = r.equipos ?? 0;
+                    const factorUso = r.factorDeUso ?? 0;
+                    return (
+                      <tr key={r.agenteCampo} className="hover:bg-gray-50">
+                        <td className="px-2 py-1.5"></td>
+                        <td className="px-2 py-1.5 pl-8 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+                        <td className="px-2 py-1.5"></td>
+                        <td className="px-2 py-1.5 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
+                        <td className="px-2 py-1.5"></td>
+                        <td className="px-2 py-1.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <div className="w-14 bg-gray-200 rounded-full h-1.5">
+                              <div className={`h-1.5 rounded-full ${efectividad >= 50 ? "bg-green-500" : efectividad >= 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(efectividad, 100)}%` }} />
+                            </div>
+                            <span className={`font-bold ${efectividad >= 50 ? "text-green-700" : efectividad >= 25 ? "text-yellow-700" : "text-red-700"}`}>{efectividad.toFixed(1)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-red-600">{noExInclQ.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-800 font-medium">{quemadas.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-blue-700 font-medium">{equipos.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{factorUso.toFixed(1)}</td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-gray-100 font-bold text-xs">
+              <td className="px-2 py-2"></td>
+              <td className="px-2 py-2">TOTAL</td>
+              <td className="px-2 py-2 text-right text-orange-600">{totalGest.toLocaleString()}</td>
+              <td className="px-2 py-2 text-right">{deptSummaries.reduce((s, d) => s + d.total, 0).toLocaleString()}</td>
+              <td className="px-2 py-2 text-right">
+                {(() => { const t = deptSummaries.reduce((s, d) => s + d.total, 0); const base = totalGest + t; return base > 0 ? (t / base * 100).toFixed(1) + "%" : "0%"; })()}
+              </td>
+              <td className="px-2 py-2 text-right">
+                {(() => { const t = deptSummaries.reduce((s, d) => s + d.total, 0); const e = deptSummaries.reduce((s, d) => s + d.exitosas, 0); return t > 0 ? (e / t * 100).toFixed(1) + "%" : "0%"; })()}
+              </td>
+              <td className="px-2 py-2 text-right text-green-700">{deptSummaries.reduce((s, d) => s + d.exitosas, 0).toLocaleString()}</td>
+              <td className="px-2 py-2 text-right text-red-600">{deptSummaries.reduce((s, d) => s + d.noExitosas, 0).toLocaleString()}</td>
+              <td className="px-2 py-2 text-right">{deptSummaries.reduce((s, d) => s + d.quemadas, 0).toLocaleString()}</td>
+              <td className="px-2 py-2 text-right text-blue-700">{deptSummaries.reduce((s, d) => s + d.equipos, 0).toLocaleString()}</td>
+              <td className="px-2 py-2 text-right text-blue-600">
+                {(() => { const e = deptSummaries.reduce((s, d) => s + d.exitosas, 0); const eq = deptSummaries.reduce((s, d) => s + d.equipos, 0); return e > 0 ? (eq / e).toFixed(1) : "0"; })()}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+        <p className="px-4 py-2 text-[10px] text-gray-400 border-t">
+          * No Exitosas incluye Quemadas. Quemadas = gestión no exitosa con cierre a {">"} 500m del punto de visita.
+          {" "}** Gestionables = clientes únicos de los últimos 3 meses calendario con último estado aún gestionable (no recuperado, no fraude, incluyendo quemadas). No se afecta por los filtros de periodo.
+        </p>
+      </>
+    );
+  };
 
   const renderTable = () => {
     if (data.length === 0) {

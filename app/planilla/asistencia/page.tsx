@@ -35,11 +35,27 @@ interface AttendanceSummary {
   recordCount: number;
 }
 
+interface EmployeeSuggestion {
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  score: number;
+  matchType: string;
+}
+
+interface UnmatchedEntry {
+  biometricName: string;
+  rowCount: number;
+  suggestions: EmployeeSuggestion[];
+  rows: { employeeName: string; clockIn: string | null; clockOut: string | null; hoursWorked: number; date: string }[];
+}
+
 interface ImportResult {
   imported: number;
   skipped: number;
   errors: string[];
   unmatchedNames: string[];
+  unmatched: UnmatchedEntry[];
   graceMinutesUsed: number;
 }
 
@@ -62,6 +78,12 @@ export default function AsistenciaPage() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Resolver state
+  const [resolving, setResolving] = useState<Record<string, boolean>>({});
+  const [resolved, setResolved] = useState<Record<string, string>>({});
+  const [showCreateForm, setShowCreateForm] = useState<string | null>(null);
+  const [newEmpData, setNewEmpData] = useState({ employeeCode: "", firstName: "", lastName: "", position: "", costCenter: "" });
 
   // Records state
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -119,6 +141,8 @@ export default function AsistenciaPage() {
     setError("");
     setImportResult(null);
     setImporting(true);
+    setResolved({});
+    setShowCreateForm(null);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -143,6 +167,93 @@ export default function AsistenciaPage() {
     setImporting(false);
     e.target.value = "";
   }
+
+  async function handleAssign(entry: UnmatchedEntry, targetEmployeeId: string) {
+    setResolving((p) => ({ ...p, [entry.biometricName]: true }));
+    try {
+      const res = await fetch("/api/planilla/asistencia/resolver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "assign",
+          biometricName: entry.biometricName,
+          targetEmployeeId,
+          rows: entry.rows,
+          periodYear: filterYear,
+          periodMonth: filterMonth,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResolved((p) => ({ ...p, [entry.biometricName]: `Asignado a ${data.employeeName} (${data.imported} registros)` }));
+        setImportResult((prev) => prev ? { ...prev, imported: prev.imported + data.imported, skipped: prev.skipped - entry.rowCount } : prev);
+      } else {
+        setError(data.error || "Error al asignar");
+      }
+    } catch {
+      setError("Error de conexión");
+    }
+    setResolving((p) => ({ ...p, [entry.biometricName]: false }));
+  }
+
+  // Guess first/last name from biometric name (Peru: APELLIDO APELLIDO NOMBRE NOMBRE)
+  function guessNameSplit(bioName: string): { firstName: string; lastName: string } {
+    const parts = bioName.trim().split(/\s+/);
+    if (parts.length <= 2) return { lastName: parts[0] || "", firstName: parts.slice(1).join(" ") };
+    // Assume first 2 tokens are last names, rest are first names
+    return { lastName: parts.slice(0, 2).join(" "), firstName: parts.slice(2).join(" ") };
+  }
+
+  async function handleCreate(entry: UnmatchedEntry) {
+    if (!newEmpData.employeeCode || (!newEmpData.lastName && !newEmpData.firstName)) {
+      setError("Código y apellidos/nombres son obligatorios");
+      return;
+    }
+    setResolving((p) => ({ ...p, [entry.biometricName]: true }));
+    try {
+      const res = await fetch("/api/planilla/asistencia/resolver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          biometricName: entry.biometricName,
+          rows: entry.rows,
+          periodYear: filterYear,
+          periodMonth: filterMonth,
+          newEmployee: {
+            employeeCode: newEmpData.employeeCode,
+            firstName: newEmpData.firstName,
+            lastName: newEmpData.lastName,
+            position: newEmpData.position || "PENDIENTE",
+            costCenter: newEmpData.costCenter || "PENDIENTE",
+          },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResolved((p) => ({ ...p, [entry.biometricName]: `Creado: ${data.employeeName} (${data.imported} registros)` }));
+        setImportResult((prev) => prev ? { ...prev, imported: prev.imported + data.imported, skipped: prev.skipped - entry.rowCount } : prev);
+        setShowCreateForm(null);
+        // Increment code for next potential create
+        const nextNum = parseInt(newEmpData.employeeCode, 10);
+        setNewEmpData({ employeeCode: isNaN(nextNum) ? "" : String(nextNum + 1).padStart(3, "0"), firstName: "", lastName: "", position: "", costCenter: "" });
+      } else {
+        setError(data.error || "Error al crear empleado");
+      }
+    } catch {
+      setError("Error de conexión");
+    }
+    setResolving((p) => ({ ...p, [entry.biometricName]: false }));
+  }
+
+  const matchTypeBadge = (type: string) => {
+    switch (type) {
+      case "inverted": return { label: "Nombre invertido", bg: "bg-purple-100 text-purple-800" };
+      case "partial": return { label: "Coincidencia parcial", bg: "bg-blue-100 text-blue-800" };
+      case "similar": return { label: "Similar", bg: "bg-gray-100 text-gray-700" };
+      default: return { label: type, bg: "bg-gray-100 text-gray-700" };
+    }
+  };
 
   const tabClass = (t: Tab) =>
     `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -201,7 +312,7 @@ export default function AsistenciaPage() {
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Importar Reporte Biométrico</h2>
           <p className="text-sm text-gray-500 mb-4">
-            Suba el archivo del reloj biométrico (CSV, TXT o XLSX). Columnas esperadas: Empleado, Entrada, Salida, Horas trabajadas
+            Suba el archivo del reloj biométrico (CSV, TXT o XLSX). Columnas aceptadas: Empleado/Name of Employee, Entrada/Check In, Salida/Check_out. Las horas se calculan automáticamente.
           </p>
 
           <div className="flex items-center gap-4">
@@ -236,16 +347,152 @@ export default function AsistenciaPage() {
                 </div>
               </div>
 
-              {importResult.unmatchedNames.length > 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-sm">
-                  <p className="text-sm font-medium text-amber-800 mb-1">
-                    Nombres no encontrados ({importResult.unmatchedNames.length}):
+              {importResult.unmatched && importResult.unmatched.length > 0 && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-sm">
+                  <p className="text-sm font-semibold text-amber-800 mb-3">
+                    Empleados no encontrados ({importResult.unmatched.length}) — Resolver pendientes:
                   </p>
-                  <ul className="text-xs text-amber-700 list-disc pl-4">
-                    {importResult.unmatchedNames.map((n, i) => (
-                      <li key={i}>{n}</li>
+                  <div className="space-y-4">
+                    {importResult.unmatched.map((entry) => (
+                      <div key={entry.biometricName} className={`p-3 border rounded-sm ${resolved[entry.biometricName] ? "bg-green-50 border-green-200" : "bg-white border-gray-200"}`}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="font-medium text-gray-900">{entry.biometricName}</span>
+                            <span className="ml-2 text-xs text-gray-500">({entry.rowCount} registros)</span>
+                          </div>
+                          {resolved[entry.biometricName] && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-sm text-xs font-medium">
+                              {resolved[entry.biometricName]}
+                            </span>
+                          )}
+                        </div>
+
+                        {!resolved[entry.biometricName] && (
+                          <>
+                            {/* Suggestions */}
+                            {entry.suggestions.length > 0 ? (
+                              <div className="mb-3">
+                                <p className="text-xs text-gray-500 mb-1">Posibles coincidencias:</p>
+                                <div className="space-y-1">
+                                  {entry.suggestions.map((s) => {
+                                    const badge = matchTypeBadge(s.matchType);
+                                    return (
+                                      <div key={s.employeeId} className="flex items-center justify-between p-2 bg-gray-50 rounded-sm hover:bg-blue-50 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium text-gray-900">{s.fullName}</span>
+                                          <span className="text-xs text-gray-400">{s.employeeCode}</span>
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${badge.bg}`}>{badge.label}</span>
+                                          <span className="text-[10px] text-gray-400">{s.score}%</span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleAssign(entry, s.employeeId)}
+                                          disabled={!!resolving[entry.biometricName]}
+                                          className="px-3 py-1 text-xs font-medium text-white bg-woden-primary rounded-sm hover:bg-woden-primary-dark disabled:opacity-50"
+                                        >
+                                          {resolving[entry.biometricName] ? "..." : "Asignar"}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400 italic mb-3">Sin coincidencias similares encontradas</p>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  const opening = showCreateForm !== entry.biometricName;
+                                  setShowCreateForm(opening ? entry.biometricName : null);
+                                  if (opening) {
+                                    const guess = guessNameSplit(entry.biometricName);
+                                    let nextCode = "";
+                                    try {
+                                      const res = await fetch("/api/empleados/next-code");
+                                      if (res.ok) { const d = await res.json(); nextCode = d.nextCode; }
+                                    } catch { /* use empty */ }
+                                    setNewEmpData({ employeeCode: nextCode, firstName: guess.firstName, lastName: guess.lastName, position: "", costCenter: "" });
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs font-medium border border-gray-300 rounded-sm hover:bg-gray-100"
+                              >
+                                {showCreateForm === entry.biometricName ? "Cancelar" : "Crear nuevo empleado"}
+                              </button>
+                            </div>
+
+                            {/* Create Form */}
+                            {showCreateForm === entry.biometricName && (
+                              <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-sm space-y-2">
+                                <p className="text-xs font-medium text-gray-700 mb-2">Datos del nuevo empleado:</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-gray-500">Código *</label>
+                                    <input
+                                      type="text"
+                                      className="input-field text-sm w-full"
+                                      placeholder="Ej: EMP-001"
+                                      value={newEmpData.employeeCode}
+                                      onChange={(e) => setNewEmpData((p) => ({ ...p, employeeCode: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-gray-500">Apellidos *</label>
+                                    <input
+                                      type="text"
+                                      className="input-field text-sm w-full"
+                                      placeholder="Ej: ESPINOZA PADILLA"
+                                      value={newEmpData.lastName}
+                                      onChange={(e) => setNewEmpData((p) => ({ ...p, lastName: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-gray-500">Nombres *</label>
+                                    <input
+                                      type="text"
+                                      className="input-field text-sm w-full"
+                                      placeholder="Ej: EDWARD JOEL"
+                                      value={newEmpData.firstName}
+                                      onChange={(e) => setNewEmpData((p) => ({ ...p, firstName: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-gray-500">Puesto</label>
+                                    <input
+                                      type="text"
+                                      className="input-field text-sm w-full"
+                                      placeholder="PENDIENTE"
+                                      value={newEmpData.position}
+                                      onChange={(e) => setNewEmpData((p) => ({ ...p, position: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-gray-500">Centro de costo</label>
+                                    <input
+                                      type="text"
+                                      className="input-field text-sm w-full"
+                                      placeholder="PENDIENTE"
+                                      value={newEmpData.costCenter}
+                                      onChange={(e) => setNewEmpData((p) => ({ ...p, costCenter: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleCreate(entry)}
+                                  disabled={!!resolving[entry.biometricName]}
+                                  className="mt-2 px-4 py-1.5 text-xs font-medium text-white bg-green-600 rounded-sm hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  {resolving[entry.biometricName] ? "Creando..." : "Crear e importar registros"}
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
