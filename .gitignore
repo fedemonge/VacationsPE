@@ -13,3 +13,6 @@ TestData/
 Training and Documentation/
 payroll_api/.env
 payroll_api/app/__pycache__/
+prisma/dev.db
+prisma/dev.db-wal
+prisma/dev.db-journal
