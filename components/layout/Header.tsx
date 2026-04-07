@@ -138,6 +138,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Postventa",
+    items: [
+      { href: "/postventa", label: "Dashboard" },
+      { href: "/postventa/reportes", label: "Reportes" },
+      { href: "/postventa/importar", label: "Importar Datos" },
+      { href: "/postventa/configuracion", label: "Configuración TAT" },
+    ],
+  },
+  {
     label: "Configuración",
     items: [
       { href: "/backups", label: "Respaldos" },

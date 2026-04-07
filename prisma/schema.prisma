@@ -1392,3 +1392,168 @@ model MrpProductionPlan {
   @@index([mrpRunId])
   @@index([month, year])
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// POSTVENTA (Post-Sale Warranty Service)
+// ═══════════════════════════════════════════════════════════════════
+
+model PostventaFeriado {
+  id        String   @id @default(uuid())
+  fecha     DateTime
+  nombre    String
+  pais      String   @default("PERU")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fecha, pais])
+  @@index([fecha])
+  @@index([pais])
+}
+
+model PostventaTatConfig {
+  id                  String   @id @default(uuid())
+  segmento            String   @unique
+  tatMaximoGarantia   Float    @default(5)
+  tatObjetivoWoden    Float    @default(3)
+  tatObjetivoLab      Float    @default(1)
+  consideraSabados    Boolean  @default(false)
+  consideraDomingos   Boolean  @default(false)
+  consideraFeriados   Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([segmento])
+}
+
+model PostventaImport {
+  id              String   @id @default(uuid())
+  fileName        String
+  source          String   @default("MANUAL")
+  totalRows       Int      @default(0)
+  importedRows    Int      @default(0)
+  errorRows       Int      @default(0)
+  importedByEmail String?
+  createdAt       DateTime @default(now())
+
+  ordenes PostventaOrden[]
+
+  @@index([createdAt])
+}
+
+model PostventaOrden {
+  id       String @id @default(uuid())
+  importId String
+
+  // Identity
+  preodsNumero String?
+  odsNumero    String?
+  imei         String?
+  segmento     String?
+  marca        String?
+  modelo       String?
+  sucursal     String?
+  ciudad       String?
+  pais         String? @default("PERU")
+
+  // Process dates
+  preorden           DateTime?
+  ingreso            DateTime?
+  ingresoUsuario     String?
+  envio              DateTime?
+  envioUsuario       String?
+  diagnostico        DateTime?
+  diagnosticoUsuario String?
+  revision           DateTime?
+  fechaPendiente     DateTime?
+  fechaEscalado      DateTime?
+  fechaCotizado      DateTime?
+  fechaFinanciamiento DateTime?
+  fechaDevolucion    DateTime?
+  entregaAlmacen     DateTime?
+  fechaIrreparable   DateTime?
+  reparacion         DateTime?
+  estadoFinal        String?
+  reparacionUsuario  String?
+  calidad            DateTime?
+  calidadUsuario     String?
+  retorno            DateTime?
+  retornoUsuario     String?
+  entrega            DateTime?
+  entregaUsuario     String?
+
+  // Status
+  condicionIngreso   String?
+  descCondicion      String?
+  estadoOperativo    String?
+  estadoOrden        String?
+  cierreOdsxEstado   String?
+  gestionable        String?
+  condicionCalculada String?
+
+  // Location
+  ciudadHomologada String?
+  tipoDeZona       String?
+
+  // Pre-calculated TAT from file
+  targetTatGarantias    Float?
+  tatGarantiasArchivo   Float?
+  cumplTatGarantia      String?
+  targetTatLaboratorio  Float?
+  tatWodenArchivo       Float?
+  cumplTatWoden         String?
+  tatLaboratorioArchivo Float?
+  cumplTatLaboratorio   String?
+  tiempoEsperaReparacion Float?
+  desvioTatGarantias    Float?
+
+  // Calculated TATs (by engine)
+  tatGarantiasCalc       Float?
+  tatWodenCalc           Float?
+  tatLaboratorioCalc     Float?
+  tatIngresoADiag        Float?
+  tatDiagAReparacion     Float?
+  tatReparacionACalidad  Float?
+  tatCalidadARetorno     Float?
+  tatRetornoAEntrega     Float?
+  cumplTatGarantiaCalc   Boolean?
+  cumplTatWodenCalc      Boolean?
+  cumplTatLabCalc        Boolean?
+
+  // Period fields
+  periodoIngreso  String?
+  anoIng          Int?
+  mesIng          Int?
+  diaIngreso      Int?
+  periodoCierre   String?
+  anoCierre       Int?
+  mesCierre       Int?
+  diaCierre       Int?
+  annoIngreso     Int?
+  mesIngreso      Int?
+  annoDiagnostico Int?
+  mesDiagnostico  Int?
+  annoReparacion  Int?
+  mesReparacion   Int?
+
+  // Misc
+  linea              Int?
+  fechaActualizacion DateTime?
+
+  // Relation
+  import PostventaImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId])
+  @@index([segmento])
+  @@index([marca])
+  @@index([estadoOrden])
+  @@index([estadoOperativo])
+  @@index([gestionable])
+  @@index([ciudadHomologada])
+  @@index([tipoDeZona])
+  @@index([anoIng, mesIng])
+  @@index([anoCierre, mesCierre])
+  @@index([odsNumero])
+  @@index([imei])
+}

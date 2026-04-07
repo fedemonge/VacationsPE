@@ -310,6 +310,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/remanufactura/mrp/corridas",
     "/remanufactura/mrp/reportes",
     "/remanufactura/mrp/configuracion",
+    "/postventa",
+    "/postventa/reportes",
+    "/postventa/importar",
+    "/postventa/configuracion",
     "/cambiar-password",
   ],
   GERENTE_PAIS: [
@@ -347,6 +351,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/remanufactura/mrp/corridas",
     "/remanufactura/mrp/reportes",
     "/remanufactura/mrp/configuracion",
+    "/postventa",
+    "/postventa/reportes",
+    "/postventa/importar",
+    "/postventa/configuracion",
     "/cambiar-password",
   ],
   OFICIAL_SEGURIDAD: [
@@ -379,6 +387,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/remanufactura/mrp/corridas",
     "/remanufactura/mrp/reportes",
     "/remanufactura/mrp/configuracion",
+    "/postventa",
+    "/postventa/reportes",
+    "/postventa/importar",
+    "/postventa/configuracion",
     "/cambiar-password",
   ],
   ADMINISTRADOR: [
@@ -418,6 +430,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "/remanufactura/mrp/corridas",
     "/remanufactura/mrp/reportes",
     "/remanufactura/mrp/configuracion",
+    "/postventa",
+    "/postventa/reportes",
+    "/postventa/importar",
+    "/postventa/configuracion",
     "/cambiar-password",
   ],
 };
