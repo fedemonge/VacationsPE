@@ -62,25 +62,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Planilla Peru",
-    items: [
-      { href: "/planilla/calcular", label: "Calcular Planilla" },
-      { href: "/planilla", label: "Periodos" },
-      { href: "/planilla/asistencia", label: "Asistencia" },
-      { href: "/planilla/batches", label: "Lotes de Pago" },
-      { href: "/planilla/excepciones", label: "Excepciones" },
-      { href: "/planilla/validacion", label: "Validación Planilla" },
-    ],
-  },
-  {
-    label: "FEC",
-    items: [
-      { href: "/fec", label: "Pipeline de Ideas" },
-      { href: "/fec/reportes", label: "Reportes FEC" },
-      { href: "/fec/admin", label: "Admin FEC" },
-    ],
-  },
-  {
     label: "Recupero",
     megaMenu: true,
     sections: [
@@ -114,27 +95,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Remanufactura",
-    megaMenu: true,
-    sections: [
-      {
-        heading: "Análisis",
-        items: [
-          { href: "/remanufactura", label: "Dashboard" },
-          { href: "/remanufactura/reportes", label: "Reportes" },
-          { href: "/remanufactura/importar", label: "Importar Datos" },
-        ],
-      },
-      {
-        heading: "MRP",
-        items: [
-          { href: "/remanufactura/mrp", label: "Dashboard MRP" },
-          { href: "/remanufactura/mrp/datos-maestros", label: "Datos Maestros" },
-          { href: "/remanufactura/mrp/planificacion", label: "Planificación" },
-          { href: "/remanufactura/mrp/corridas", label: "Corridas MRP" },
-          { href: "/remanufactura/mrp/reportes", label: "Reportes MRP" },
-          { href: "/remanufactura/mrp/configuracion", label: "Configuración" },
-        ],
-      },
+    items: [
+      { href: "/remanufactura", label: "Dashboard" },
+      { href: "/remanufactura/reportes", label: "Reportes" },
+      { href: "/remanufactura/importar", label: "Importar Datos" },
     ],
   },
   {

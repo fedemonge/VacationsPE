@@ -109,6 +109,27 @@ function buildRawWhereNoSource(filters: RemanufacturaFilterSet): { conditions: s
   return { conditions, params };
 }
 
+/**
+ * Build the SQL condition for cycle-entry events.
+ * DirecTV: specific transaction types arriving at IQREC00 orgs.
+ * Other clients: INGRESO etapa with 'Recepciones varias'.
+ * WMS (all clients): DIAGNOSTICO etapa.
+ */
+function buildCycleEntrySQL(filters: RemanufacturaFilterSet): string {
+  if (filters.cliente === 'DIRECTV') {
+    return `(
+      ("tipoTransaccion" IN ('Recepciones Varias', 'Recepciones varias', 'Transferencia Directa Entre Organizaciones') AND "orgDestino" LIKE 'IQREC00%')
+      OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
+    )`;
+  }
+  // Non-DirecTV or all-clients view: include both DirecTV + legacy logic
+  return `(
+    ("tipoTransaccion" IN ('Recepciones Varias', 'Recepciones varias', 'Transferencia Directa Entre Organizaciones') AND "orgDestino" LIKE 'IQREC00%')
+    OR ("etapa" = 'INGRESO' AND "tipoTransaccion" = 'Recepciones varias')
+    OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
+  )`;
+}
+
 /** Build raw SQL with source rule + client but NO date range and NO familia (for cycle counting across full history).
  *  Familia filter is resolved separately via Prisma ORM to get a serial allowlist. */
 function buildRawWhereForCycles(filters: RemanufacturaFilterSet): { conditions: string[]; params: unknown[] } {
@@ -306,9 +327,11 @@ export async function getMonthlyDiagnostics(filters: RemanufacturaFilterSet) {
 
 /**
  * Iteration analysis — counts refurbishment cycles per serial.
- * A cycle = a distinct date with a cycle-entry event:
- *   - INGRESO (from OSCM before Jul 2025)
- *   - DIAGNOSTICO from WMS (from Jul 2025)
+ * A cycle = a distinct date with a cycle-entry event (see buildCycleEntrySQL):
+ *   - DirecTV: transaction type 'Recepciones Varias' or 'Transferencia Directa Entre Organizaciones'
+ *     with orgDestino starting with 'IQREC00'
+ *   - Other clients: etapa INGRESO with 'Recepciones varias'
+ *   - WMS: DIAGNOSTICO etapa
  * Source rule: OSCM before Jul 2025, WMS from Jul 2025. No exceptions.
  */
 export async function getIterationAnalysis(filters: RemanufacturaFilterSet) {
@@ -327,10 +350,7 @@ export async function getIterationAnalysis(filters: RemanufacturaFilterSet) {
       COUNT(DISTINCT strftime('%Y-%m-%d', datetime("fechaTransaccion"/1000, 'unixepoch'))) as cycles
     FROM "RemanufacturaTransaccion"
     WHERE ${whereClause}
-      AND (
-        ("etapa" = 'INGRESO' AND "tipoTransaccion" IN ('Recepciones varias', 'DTV USER Recepciones varias'))
-        OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
-      )
+      AND ${buildCycleEntrySQL(filters)}
     GROUP BY "numeroSerie"
   `, ...params);
 
@@ -370,10 +390,7 @@ export async function getIterationDetail(filters: RemanufacturaFilterSet, iterac
       MIN("fechaTransaccion") as firstSeen, MAX("fechaTransaccion") as lastSeen
     FROM "RemanufacturaTransaccion"
     WHERE ${whereClause}
-      AND (
-        ("etapa" = 'INGRESO' AND "tipoTransaccion" IN ('Recepciones varias', 'DTV USER Recepciones varias'))
-        OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
-      )
+      AND ${buildCycleEntrySQL(filters)}
     GROUP BY "numeroSerie"
     HAVING cycles = ?
   `, ...params, iteracion);
@@ -458,10 +475,7 @@ export async function getFaultByIterationAnalysis(filters: RemanufacturaFilterSe
         COUNT(DISTINCT strftime('%Y-%m-%d', datetime("fechaTransaccion"/1000, 'unixepoch'))) as cycles
       FROM "RemanufacturaTransaccion"
       WHERE ${cycleWhereClause}
-        AND (
-          ("etapa" = 'INGRESO' AND "tipoTransaccion" IN ('Recepciones varias', 'DTV USER Recepciones varias'))
-          OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
-        )
+        AND ${buildCycleEntrySQL(filters)}
       GROUP BY "numeroSerie"
     `, ...cycleParams),
     getSerialsByFamilia(filters),
@@ -613,10 +627,7 @@ export async function getScrapByIteration(filters: RemanufacturaFilterSet) {
       COUNT(DISTINCT strftime('%Y-%m-%d', datetime("fechaTransaccion"/1000, 'unixepoch'))) as cycles
     FROM "RemanufacturaTransaccion"
     WHERE ${whereClause}
-      AND (
-        ("etapa" = 'INGRESO' AND "tipoTransaccion" IN ('Recepciones varias', 'DTV USER Recepciones varias'))
-        OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
-      )
+      AND ${buildCycleEntrySQL(filters)}
     GROUP BY "numeroSerie"
   `, ...params);
 

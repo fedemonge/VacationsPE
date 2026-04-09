@@ -7,6 +7,27 @@ import * as XLSX from "xlsx";
 
 type ReportTab = "burned" | "agents" | "effectiveness" | "outside-peru" | "missing-coords";
 
+interface DetailRecord {
+  id: string;
+  agenteCampo: string;
+  contrato: string | null;
+  cedulaUsuario: string | null;
+  nombreUsuario: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+  departamento: string | null;
+  tipoBase: string | null;
+  grupo: string | null;
+  estado: string | null;
+  tipoCierre: string | null;
+  fechaCierre: string | null;
+  distanciaMetros: number | null;
+  equiposRecuperados: number | null;
+  esQuemada: boolean;
+  esAgendado: boolean;
+  coordStatus: string | null;
+}
+
 interface BurnedRecord {
   id: string;
   nombreUsuario: string | null;
@@ -76,6 +97,14 @@ export default function RecuperoReportesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+
+  // Drill-down modal
+  const [drillDown, setDrillDown] = useState<{
+    open: boolean;
+    title: string;
+    records: DetailRecord[];
+    loading: boolean;
+  }>({ open: false, title: "", records: [], loading: false });
 
   // Filters
   const [year, setYear] = useState(now.getFullYear());
@@ -162,6 +191,46 @@ export default function RecuperoReportesPage() {
     catch { return d; }
   };
 
+  const openDrillDown = async (filterType: "agenteCampo" | "departamento", value: string) => {
+    setDrillDown({ open: true, title: value, records: [], loading: true });
+    try {
+      const qs = buildQuery();
+      const res = await fetch(`/api/recupero/reportes/detalle?${filterType}=${encodeURIComponent(value)}&${qs}`);
+      if (!res.ok) throw new Error("Error al cargar detalle");
+      const json = await res.json();
+      setDrillDown((prev) => ({ ...prev, records: json.tasks || [], loading: false }));
+    } catch {
+      setDrillDown((prev) => ({ ...prev, records: [], loading: false }));
+    }
+  };
+
+  const exportDrillDownExcel = () => {
+    if (drillDown.records.length === 0) return;
+    const exportData = drillDown.records.map((r) => ({
+      Fecha: r.fechaCierre ? new Date(r.fechaCierre).toLocaleDateString("es-PE") : "",
+      Agente: r.agenteCampo,
+      Departamento: r.departamento || "",
+      Contrato: r.contrato || "",
+      Cedula: r.cedulaUsuario || "",
+      Usuario: r.nombreUsuario || "",
+      Direccion: r.direccion || "",
+      Ciudad: r.ciudad || "",
+      TipoBase: r.tipoBase || "",
+      Grupo: r.grupo || "",
+      Estado: r.estado || "",
+      TipoCierre: r.tipoCierre || "",
+      "Distancia (m)": r.distanciaMetros != null ? Math.round(r.distanciaMetros) : "",
+      Equipos: r.equiposRecuperados ?? 0,
+      Quemada: r.esQuemada ? "Sí" : "No",
+      Agendado: r.esAgendado ? "Sí" : "No",
+      Coordenadas: r.coordStatus || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Detalle");
+    XLSX.writeFile(wb, `Recupero_Detalle_${drillDown.title.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const renderBurnedTable = (records: BurnedRecord[]) => (
     <table className="min-w-full divide-y divide-gray-200 text-xs">
       <thead className="bg-gray-50">
@@ -180,8 +249,26 @@ export default function RecuperoReportesPage() {
         {records.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{fmtDate(r.fechaCierre)}</td>
-            <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
-            <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+            <td className="px-2 py-1.5 font-medium whitespace-nowrap">
+              <button
+                onClick={() => openDrillDown("agenteCampo", r.agenteCampo)}
+                className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2 font-medium"
+                title={`Ver detalle de ${r.agenteCampo}`}
+              >
+                {r.agenteCampo}
+              </button>
+            </td>
+            <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">
+              {r.departamento ? (
+                <button
+                  onClick={() => openDrillDown("departamento", r.departamento!)}
+                  className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                  title={`Ver detalle de ${r.departamento}`}
+                >
+                  {r.departamento}
+                </button>
+              ) : "—"}
+            </td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.grupo || "—"}</td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.nombreUsuario || "—"}</td>
             <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.tipoBase || "—"}</td>
@@ -225,8 +312,26 @@ export default function RecuperoReportesPage() {
           const factorUso = (r as AgentRecord & { factorDeUso?: number }).factorDeUso ?? 0;
           return (
             <tr key={r.agenteCampo} className="hover:bg-gray-50">
-              <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
-              <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+              <td className="px-2 py-1.5 font-medium whitespace-nowrap">
+                <button
+                  onClick={() => openDrillDown("agenteCampo", r.agenteCampo)}
+                  className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2 font-medium"
+                  title={`Ver detalle de ${r.agenteCampo}`}
+                >
+                  {r.agenteCampo}
+                </button>
+              </td>
+              <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">
+                {r.departamento ? (
+                  <button
+                    onClick={() => openDrillDown("departamento", r.departamento!)}
+                    className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                    title={`Ver detalle de ${r.departamento}`}
+                  >
+                    {r.departamento}
+                  </button>
+                ) : "—"}
+              </td>
               <td className="px-2 py-1.5 text-right text-gray-900 font-medium">{total.toLocaleString()}</td>
               <td className="px-2 py-1.5 text-right text-green-700 font-medium">{exitosas.toLocaleString()}</td>
               <td className="px-2 py-1.5 text-right text-red-600">{noExitosas.toLocaleString()}</td>
@@ -269,9 +374,27 @@ export default function RecuperoReportesPage() {
         {records.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.nombreUsuario}</td>
-            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              {r.departamento ? (
+                <button
+                  onClick={() => openDrillDown("departamento", r.departamento!)}
+                  className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                  title={`Ver detalle de ${r.departamento}`}
+                >
+                  {r.departamento}
+                </button>
+              ) : "—"}
+            </td>
             <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{r.direccion}</td>
-            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.agenteCampo}</td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              <button
+                onClick={() => openDrillDown("agenteCampo", r.agenteCampo)}
+                className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                title={`Ver detalle de ${r.agenteCampo}`}
+              >
+                {r.agenteCampo}
+              </button>
+            </td>
             <td className="px-4 py-3 text-right text-gray-600">{r.latitud?.toFixed(6) ?? "—"}</td>
             <td className="px-4 py-3 text-right text-gray-600">{r.longitud?.toFixed(6) ?? "—"}</td>
           </tr>
@@ -296,9 +419,27 @@ export default function RecuperoReportesPage() {
         {records.map((r) => (
           <tr key={r.id} className="hover:bg-gray-50">
             <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{r.nombreUsuario}</td>
-            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              {r.departamento ? (
+                <button
+                  onClick={() => openDrillDown("departamento", r.departamento!)}
+                  className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                  title={`Ver detalle de ${r.departamento}`}
+                >
+                  {r.departamento}
+                </button>
+              ) : "—"}
+            </td>
             <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{r.direccion}</td>
-            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.agenteCampo}</td>
+            <td className="px-4 py-3 whitespace-nowrap">
+              <button
+                onClick={() => openDrillDown("agenteCampo", r.agenteCampo)}
+                className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2"
+                title={`Ver detalle de ${r.agenteCampo}`}
+              >
+                {r.agenteCampo}
+              </button>
+            </td>
             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.estado}</td>
             <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.tipoBase}</td>
           </tr>
@@ -384,7 +525,13 @@ export default function RecuperoReportesPage() {
                       </svg>
                     </td>
                     <td className="px-2 py-2 font-bold text-gray-900 whitespace-nowrap">
-                      {ds.dept}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDrillDown("departamento", ds.dept); }}
+                        className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2 font-bold"
+                        title={`Ver detalle de ${ds.dept}`}
+                      >
+                        {ds.dept}
+                      </button>
                       <span className="ml-2 text-[10px] font-normal text-gray-500">({ds.agents.length} agente{ds.agents.length !== 1 ? "s" : ""})</span>
                     </td>
                     <td className="px-2 py-2 text-right font-bold text-orange-600">{ds.gestionables > 0 ? ds.gestionables.toLocaleString() : "—"}</td>
@@ -419,7 +566,15 @@ export default function RecuperoReportesPage() {
                     return (
                       <tr key={r.agenteCampo} className="hover:bg-gray-50">
                         <td className="px-2 py-1.5"></td>
-                        <td className="px-2 py-1.5 pl-8 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+                        <td className="px-2 py-1.5 pl-8 font-medium whitespace-nowrap">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openDrillDown("agenteCampo", r.agenteCampo); }}
+                            className="text-[#EA7704] hover:text-[#d06a03] underline decoration-dotted underline-offset-2 font-medium"
+                            title={`Ver detalle de ${r.agenteCampo}`}
+                          >
+                            {r.agenteCampo}
+                          </button>
+                        </td>
                         <td className="px-2 py-1.5"></td>
                         <td className="px-2 py-1.5 text-right text-gray-900 font-bold">{total.toLocaleString()}</td>
                         <td className="px-2 py-1.5"></td>
@@ -645,6 +800,113 @@ export default function RecuperoReportesPage() {
           </div>
         )}
       </div>
+
+      {/* Drill-down Modal */}
+      {drillDown.open && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-8 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-[95vw] max-w-6xl max-h-[90vh] flex flex-col m-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Detalle: {drillDown.title}</h2>
+                {!drillDown.loading && (
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {drillDown.records.length.toLocaleString()} registro{drillDown.records.length !== 1 ? "s" : ""}
+                    {" — "}{MONTHS[month - 1]} {year}{day ? `, día ${day}` : ""}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportDrillDownExcel}
+                  disabled={drillDown.records.length === 0 || drillDown.loading}
+                  className="px-3 py-1.5 bg-[#EA7704] text-white rounded-lg hover:bg-[#d06a03] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Exportar Excel
+                </button>
+                <button
+                  onClick={() => setDrillDown({ open: false, title: "", records: [], loading: false })}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-auto flex-1">
+              {drillDown.loading ? (
+                <div className="flex justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EA7704]" />
+                </div>
+              ) : drillDown.records.length === 0 ? (
+                <div className="text-center py-16 text-gray-500">No hay registros.</div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200 text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Fecha</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Agente</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Depto</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Contrato</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Usuario</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Dirección</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Ciudad</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Tipo Base</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Grupo</th>
+                      <th className="px-2 py-2 text-left font-medium text-gray-500">Tipo Cierre</th>
+                      <th className="px-2 py-2 text-right font-medium text-gray-500">Dist. (m)</th>
+                      <th className="px-2 py-2 text-right font-medium text-gray-500">Equipos</th>
+                      <th className="px-2 py-2 text-center font-medium text-gray-500">Quem.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {drillDown.records.map((r) => {
+                      const isSuccess = r.tipoCierre?.toUpperCase().includes("RECUPERADO WODEN");
+                      return (
+                        <tr key={r.id} className={`hover:bg-gray-50 ${r.esQuemada ? "bg-red-50/50" : ""}`}>
+                          <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{fmtDate(r.fechaCierre)}</td>
+                          <td className="px-2 py-1.5 font-medium text-gray-900 whitespace-nowrap">{r.agenteCampo}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.departamento || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.contrato || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.nombreUsuario || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 max-w-[180px] truncate" title={r.direccion || ""}>{r.direccion || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.ciudad || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.tipoBase || "—"}</td>
+                          <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.grupo || "—"}</td>
+                          <td className="px-2 py-1.5 whitespace-nowrap">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              isSuccess ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {r.tipoCierre || "—"}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-gray-600">
+                            {r.distanciaMetros != null
+                              ? r.distanciaMetros >= 1000
+                                ? `${(r.distanciaMetros / 1000).toFixed(1)}k`
+                                : `${Math.round(r.distanciaMetros)}`
+                              : "—"}
+                          </td>
+                          <td className="px-2 py-1.5 text-right text-blue-700 font-medium">{r.equiposRecuperados ?? 0}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            {r.esQuemada && <span className="text-red-500 font-bold text-[10px]">QUEM</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

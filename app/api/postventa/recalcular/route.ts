@@ -82,6 +82,12 @@ async function recalculate(progressId: string, where: Record<string, unknown>, t
         calidad: true,
         retorno: true,
         entrega: true,
+        fechaIrreparable: true,
+        fechaDevolucion: true,
+        fechaEscalado: true,
+        fechaCotizado: true,
+        fechaFinanciamiento: true,
+        fechaPendiente: true,
         targetTatGarantias: true,
       },
     });

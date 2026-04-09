@@ -92,41 +92,6 @@ const featureGroups: FeatureGroup[] = [
       },
     ],
   },
-  {
-    section: "Planilla",
-    items: [
-      {
-        title: "Calcular Planilla",
-        description: "Motor de cálculo de remuneraciones con reglas peruanas.",
-        href: "/planilla/calcular",
-        icon: "🧮",
-      },
-      {
-        title: "Periodos",
-        description: "Gestión de periodos de nómina y detalle por empleado.",
-        href: "/planilla",
-        icon: "📅",
-      },
-      {
-        title: "Asistencia",
-        description: "Importación biométrica, cálculo de HE y tardanzas.",
-        href: "/planilla/asistencia",
-        icon: "⏱️",
-      },
-      {
-        title: "Lotes de Pago",
-        description: "Batches, aprobación de pago y archivo BBVA.",
-        href: "/planilla/batches",
-        icon: "🏦",
-      },
-      {
-        title: "Excepciones",
-        description: "Ajustes manuales y registro de excepciones.",
-        href: "/planilla/excepciones",
-        icon: "⚠️",
-      },
-    ],
-  },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

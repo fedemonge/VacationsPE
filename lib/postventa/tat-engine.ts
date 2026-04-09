@@ -73,11 +73,19 @@ export function calculateSubProcessTats(
     calidad?: Date | null;
     retorno?: Date | null;
     entrega?: Date | null;
+    fechaIrreparable?: Date | null;
+    fechaDevolucion?: Date | null;
+    fechaEscalado?: Date | null;
+    fechaCotizado?: Date | null;
+    fechaFinanciamiento?: Date | null;
+    fechaPendiente?: Date | null;
   },
   options: TatCalcOptions,
   targets: { garantia: number; woden: number; lab: number }
 ): SubProcessTats {
-  const tatGarantiasCalc = calculateBusinessDays(orden.ingreso, orden.entrega, options);
+  // For TAT Garantia: use entrega if available, otherwise last status date
+  const garantiaEndDate = orden.entrega || getLastStatusDate(orden);
+  const tatGarantiasCalc = calculateBusinessDays(orden.ingreso, garantiaEndDate, options);
   const tatWodenCalc = calculateBusinessDays(orden.ingreso, orden.retorno, options);
   const tatLaboratorioCalc = calculateBusinessDays(orden.envio, orden.reparacion, options);
 
@@ -94,6 +102,48 @@ export function calculateSubProcessTats(
     cumplTatWodenCalc: tatWodenCalc !== null ? tatWodenCalc <= targets.woden : null,
     cumplTatLabCalc: tatLaboratorioCalc !== null ? tatLaboratorioCalc <= targets.lab : null,
   };
+}
+
+/**
+ * Get the latest date in the process chain (for orders closed without entrega).
+ * Falls back through: entrega → retorno → calidad → reparacion → diagnostico → envio → ingreso
+ */
+export function getLastStatusDate(orden: {
+  entrega?: Date | null;
+  retorno?: Date | null;
+  calidad?: Date | null;
+  reparacion?: Date | null;
+  diagnostico?: Date | null;
+  envio?: Date | null;
+  ingreso?: Date | null;
+  fechaIrreparable?: Date | null;
+  fechaDevolucion?: Date | null;
+  fechaEscalado?: Date | null;
+  fechaCotizado?: Date | null;
+  fechaFinanciamiento?: Date | null;
+  fechaPendiente?: Date | null;
+}): Date | null {
+  // Check process chain dates in reverse order
+  const candidates = [
+    orden.entrega,
+    orden.retorno,
+    orden.calidad,
+    orden.reparacion,
+    orden.fechaIrreparable,
+    orden.fechaDevolucion,
+    orden.fechaFinanciamiento,
+    orden.fechaCotizado,
+    orden.fechaEscalado,
+    orden.fechaPendiente,
+    orden.diagnostico,
+    orden.envio,
+    orden.ingreso,
+  ].filter((d): d is Date => d !== null && d !== undefined);
+
+  if (candidates.length === 0) return null;
+
+  // Return the most recent date
+  return candidates.reduce((latest, d) => (d > latest ? d : latest));
 }
 
 /**

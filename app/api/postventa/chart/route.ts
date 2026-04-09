@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { calculateBusinessDays } from "@/lib/postventa/tat-engine";
-import { TatCalcOptions } from "@/lib/postventa/types";
 
 export const dynamic = "force-dynamic";
 
@@ -61,29 +59,12 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  // Proxy TAT for open orders
-  const configs = await prisma.postventaTatConfig.findMany({ where: { isActive: true } });
-  const configMap = new Map(configs.map((c) => [c.segmento, c]));
-  const holidays = await prisma.postventaFeriado.findMany({ where: { isActive: true, pais: "PERU" } });
-  const holidayDates = holidays.map((h) => new Date(h.fecha));
-  const today = new Date();
-
-  const effective = ordenes.map((o) => {
-    let cumplGar = o.cumplTatGarantiaCalc;
-    if (o.cierreOdsxEstado === "ABIERTO" && o.ingreso && cumplGar === null) {
-      const config = configMap.get(o.segmento || "");
-      const opts: TatCalcOptions = {
-        includeSaturdays: config?.consideraSabados ?? false,
-        includeSundays: config?.consideraDomingos ?? false,
-        includeHolidays: config?.consideraFeriados ?? false,
-        holidays: holidayDates,
-      };
-      const targetGar = config?.tatMaximoGarantia ?? o.targetTatGarantias ?? 5;
-      const tatGar = calculateBusinessDays(o.ingreso, today, opts);
-      cumplGar = tatGar !== null ? tatGar <= targetGar : null;
-    }
-    return { ...o, cumplGar };
-  });
+  // For trend charts, use stored TATs only (closed orders) — no proxy
+  // Proxy distorts historical trends since open orders accumulate aging
+  const effective = ordenes.map((o) => ({
+    ...o,
+    cumplGar: o.cumplTatGarantiaCalc,
+  }));
 
   if (chartType === "volume-trend") {
     // Monthly volume: open vs closed

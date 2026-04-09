@@ -74,14 +74,25 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Detect client to apply correct cycle-entry logic
+    const isDirectv = transactions.some((t) => t.clienteNormalizado === "DIRECTV");
+
     // Assign cycle numbers based on distinct cycle-entry dates from ALL sources.
-    // A cycle entry = INGRESO (from OSCM) or DIAGNOSTICO (from WMS)
+    // DirecTV: 'Recepciones Varias'/'Transferencia Directa Entre Organizaciones' + orgDestino IQREC00*
+    // Other clients: etapa INGRESO + 'Recepciones varias'
+    // WMS (all): DIAGNOSTICO
     const ingresoDates = new Set<string>();
     for (const t of allTransactions) {
       if (!t.fechaTransaccion) continue;
-      const isCycleEntry =
-        (t.etapa === "INGRESO" && (t.tipoTransaccion === "Recepciones varias" || t.tipoTransaccion === "DTV USER Recepciones varias")) ||
-        (t.source === "WMS" && t.etapa === "DIAGNOSTICO");
+      const isCycleEntry = isDirectv
+        ? (
+            ((t.tipoTransaccion === "Recepciones Varias" || t.tipoTransaccion === "Recepciones varias" || t.tipoTransaccion === "Transferencia Directa Entre Organizaciones") && t.orgDestino?.startsWith("IQREC00"))
+            || (t.source === "WMS" && t.etapa === "DIAGNOSTICO")
+          )
+        : (
+            (t.etapa === "INGRESO" && t.tipoTransaccion === "Recepciones varias")
+            || (t.source === "WMS" && t.etapa === "DIAGNOSTICO")
+          );
       if (isCycleEntry) {
         ingresoDates.add(new Date(t.fechaTransaccion).toISOString().split("T")[0]);
       }
@@ -102,9 +113,15 @@ export async function GET(request: NextRequest) {
       }
       (mapped[i] as Record<string, unknown>).ciclo = cycleNum;
       const t2 = transactions[i];
-      (mapped[i] as Record<string, unknown>).esIngreso =
-        (t2.etapa === "INGRESO" && (t2.tipoTransaccion === "Recepciones varias" || t2.tipoTransaccion === "DTV USER Recepciones varias")) ||
-        (t2.source === "WMS" && t2.etapa === "DIAGNOSTICO");
+      (mapped[i] as Record<string, unknown>).esIngreso = isDirectv
+        ? (
+            ((t2.tipoTransaccion === "Recepciones Varias" || t2.tipoTransaccion === "Recepciones varias" || t2.tipoTransaccion === "Transferencia Directa Entre Organizaciones") && t2.orgDestino?.startsWith("IQREC00"))
+            || (t2.source === "WMS" && t2.etapa === "DIAGNOSTICO")
+          )
+        : (
+            (t2.etapa === "INGRESO" && t2.tipoTransaccion === "Recepciones varias")
+            || (t2.source === "WMS" && t2.etapa === "DIAGNOSTICO")
+          );
     }
 
     // Determine familia from the most common non-null value
