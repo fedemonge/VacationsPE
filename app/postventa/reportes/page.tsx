@@ -8,7 +8,7 @@ import {
 
 const MONTH_NAMES = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-type Tab = "tat-adherence" | "aging" | "subprocess" | "operator";
+type Tab = "tat-adherence" | "aging" | "pendientes" | "pendientes-diario" | "subprocess" | "operator";
 
 interface TatRow {
   label: string;
@@ -21,19 +21,32 @@ interface TatRow {
   avgTatLab: number | null;
 }
 
-interface TatGroup extends TatRow {
+interface TatL2 extends TatRow {
   children: TatRow[];
+}
+
+interface TatGroup extends TatRow {
+  children: TatL2[];
 }
 
 interface AgingRow {
   label: string;
   total: number;
-  [key: string]: string | number;
+  [key: string]: string | number | AgingL2[] | AgingRow[];
+}
+
+interface AgingL2 extends AgingRow {
+  children: AgingRow[];
 }
 
 interface AgingGroup extends AgingRow {
-  children: AgingRow[];
+  children: AgingL2[];
 }
+
+interface DayL3 { label: string; total: number }
+interface DayL2 { label: string; total: number; children: DayL3[] }
+interface DayL1 { label: string; total: number; children: DayL2[] }
+interface DayGroup { fecha: string; total: number; children: DayL1[] }
 
 interface Filters {
   segmentos: string[];
@@ -43,6 +56,8 @@ interface Filters {
   estadosOrden: string[];
   cierresOds: string[];
   gestionables: string[];
+  sucursales: string[];
+  canales: string[];
   paises: string[];
   anos: number[];
   meses: number[];
@@ -60,6 +75,8 @@ export default function PostventaReportesPage() {
   const [estadoOrden, setEstadoOrden] = useState("");
   const [cierreOdsxEstado, setCierreOdsxEstado] = useState("");
   const [gestionable, setGestionable] = useState("");
+  const [sucursal, setSucursal] = useState("");
+  const [canal, setCanal] = useState("");
   const [pais, setPais] = useState("");
   const [groupBy, setGroupBy] = useState<"operador" | "marca">("operador");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -68,6 +85,12 @@ export default function PostventaReportesPage() {
   const [agingData, setAgingData] = useState<{ byOperador: AgingGroup[]; byMarca: AgingGroup[]; buckets: { key: string; label: string; min: number; max: number }[]; asOfDate: string } | null>(null);
   const [agingGroupBy, setAgingGroupBy] = useState<"operador" | "marca">("operador");
   const [agingExpanded, setAgingExpanded] = useState<Set<string>>(new Set());
+  const [pendData, setPendData] = useState<{ byOperador: AgingGroup[]; byMarca: AgingGroup[]; buckets: { key: string; label: string; min: number; max: number }[]; asOfDate: string } | null>(null);
+  const [pendGroupBy, setPendGroupBy] = useState<"operador" | "marca">("operador");
+  const [pendExpanded, setPendExpanded] = useState<Set<string>>(new Set());
+  const [pendDiarioData, setPendDiarioData] = useState<{ data: DayGroup[]; totalPendientes: number } | null>(null);
+  const [pendDiarioGroupBy, setPendDiarioGroupBy] = useState<"operador" | "marca">("operador");
+  const [pendDiarioExpanded, setPendDiarioExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [drillDown, setDrillDown] = useState<{ title: string; rows: Record<string, unknown>[]; loading: boolean } | null>(null);
 
@@ -83,6 +106,8 @@ export default function PostventaReportesPage() {
     if (estadoOrden) p.set("estadoOrden", estadoOrden);
     if (cierreOdsxEstado) p.set("cierreOdsxEstado", cierreOdsxEstado);
     if (gestionable) p.set("gestionable", gestionable);
+    if (sucursal) p.set("sucursal", sucursal);
+    if (canal) p.set("canal", canal);
     if (pais) p.set("pais", pais);
     for (const [k, v] of Object.entries(filterOverrides)) p.set(k, v);
     try {
@@ -127,19 +152,22 @@ export default function PostventaReportesPage() {
     if (estadoOrden) p.set("estadoOrden", estadoOrden);
     if (cierreOdsxEstado) p.set("cierreOdsxEstado", cierreOdsxEstado);
     if (gestionable) p.set("gestionable", gestionable);
+    if (sucursal) p.set("sucursal", sucursal);
+    if (canal) p.set("canal", canal);
     if (pais) p.set("pais", pais);
     return p.toString();
   };
 
   // Serialize filter state into a single string to avoid stale closures
-  const filterKey = [tab, anoIng, mesIng, segmento, marca, ciudadHomologada, tipoDeZona, estadoOrden, cierreOdsxEstado, gestionable, pais].join("|");
+  const filterKey = [tab, anoIng, mesIng, segmento, marca, ciudadHomologada, tipoDeZona, estadoOrden, cierreOdsxEstado, gestionable, sucursal, canal, pais, pendDiarioGroupBy].join("|");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     const qs = buildQs();
 
-    fetch(`/api/postventa/reportes?type=${tab}&${qs}`)
+    const extra = tab === "pendientes-diario" ? `&groupBy=${pendDiarioGroupBy}` : "";
+    fetch(`/api/postventa/reportes?type=${tab}${extra}&${qs}`)
       .then((res) => res.ok ? res.json() : null)
       .then((json) => {
         if (cancelled || !json) return;
@@ -147,6 +175,10 @@ export default function PostventaReportesPage() {
           setTatData({ byOperador: json.byOperador || [], byMarca: json.byMarca || [], openCount: json.openCount || 0, asOfDate: json.asOfDate || "" });
         } else if (tab === "aging") {
           setAgingData({ byOperador: json.byOperador || [], byMarca: json.byMarca || [], buckets: json.buckets || [], asOfDate: json.asOfDate || "" });
+        } else if (tab === "pendientes") {
+          setPendData({ byOperador: json.byOperador || [], byMarca: json.byMarca || [], buckets: json.buckets || [], asOfDate: json.asOfDate || "" });
+        } else if (tab === "pendientes-diario") {
+          setPendDiarioData({ data: json.data || [], totalPendientes: json.totalPendientes || 0 });
         } else {
           setData(json.data || []);
         }
@@ -271,6 +303,22 @@ export default function PostventaReportesPage() {
               </select>
             </div>
             <div>
+              <label className="block text-xs text-gray-500 mb-1">Sucursal</label>
+              <select value={sucursal} onChange={(e) => setSucursal(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                <option value="">Todas</option>
+                {filters.sucursales.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Canal</label>
+              <select value={canal} onChange={(e) => setCanal(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                <option value="">Todos</option>
+                {filters.canales.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-xs text-gray-500 mb-1">País</label>
               <select value={pais} onChange={(e) => setPais(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
@@ -287,6 +335,8 @@ export default function PostventaReportesPage() {
         {([
           ["tat-adherence", "Cumplimiento TAT"],
           ["aging", "Envejecimiento"],
+          ["pendientes", "Pendientes Pre-ODS"],
+          ["pendientes-diario", "Pendientes x Día"],
           ["subprocess", "Sub-procesos"],
         ] as [Tab, string][]).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
@@ -382,7 +432,9 @@ export default function PostventaReportesPage() {
                             TOTAL
                           </button>
                         </td>
-                        <td className="py-2.5 px-3 text-right">{t.total.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          <button onClick={() => openDrillDown("TOTAL", {})} className="hover:underline">{t.total.toLocaleString()}</button>
+                        </td>
                         <td className={`py-2.5 px-3 text-right rounded ${pctColor(pG)}`}>{pG !== null ? `${pG}%` : "—"}</td>
                         <td className={`py-2.5 px-3 text-right rounded ${pctColor(pW)}`}>{pW !== null ? `${pW}%` : "—"}</td>
                         <td className={`py-2.5 px-3 text-right rounded ${pctColor(pL)}`}>{pL !== null ? `${pL}%` : "—"}</td>
@@ -393,16 +445,17 @@ export default function PostventaReportesPage() {
                     );
                   })()}
                   {groups.map((group) => {
-                    const parentFilterKey = groupBy === "operador" ? "segmento" : "marca";
-                    const childFilterKey = groupBy === "operador" ? "marca" : "segmento";
+                    const pFK = groupBy === "operador" ? "segmento" : "marca";
+                    const cFK = groupBy === "operador" ? "marca" : "segmento";
                     return (
                       <>
+                        {/* L1: Operador or Marca */}
                         <tr key={group.label} className="border-b border-gray-200 bg-gray-50 hover:bg-gray-100">
                           <td className="py-2 px-3 font-semibold">
                             <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggleExpand(group.label)}>
                               {expanded.has(group.label) ? "▼" : "▶"}
                             </span>
-                            <button onClick={(e) => { e.stopPropagation(); openDrillDown(group.label, { [parentFilterKey]: group.label }); }}
+                            <button onClick={(e) => { e.stopPropagation(); openDrillDown(group.label, { [pFK]: group.label }); }}
                               className="text-blue-700 hover:text-blue-900 hover:underline font-semibold">
                               {group.label}
                             </button>
@@ -412,17 +465,43 @@ export default function PostventaReportesPage() {
                           </td>
                           <TatCells row={group} />
                         </tr>
-                        {expanded.has(group.label) && group.children.map((child) => (
-                          <tr key={`${group.label}-${child.label}`} className="border-b border-gray-50 hover:bg-orange-50">
-                            <td className="py-1.5 px-3 pl-10">
-                              <button onClick={() => openDrillDown(`${group.label} / ${child.label}`, { [parentFilterKey]: group.label, [childFilterKey]: child.label })}
-                                className="text-blue-600 hover:text-blue-800 hover:underline">
-                                {child.label}
-                              </button>
-                            </td>
-                            <TatCells row={child} />
-                          </tr>
-                        ))}
+                        {/* L2: Marca or Operador */}
+                        {expanded.has(group.label) && group.children.map((child) => {
+                          const l2Key = `${group.label}|${child.label}`;
+                          return (
+                            <>
+                              <tr key={l2Key} className="border-b border-gray-50 hover:bg-orange-50">
+                                <td className="py-1.5 px-3 pl-8">
+                                  <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggleExpand(l2Key)}>
+                                    {expanded.has(l2Key) ? "▼" : "▶"}
+                                  </span>
+                                  <button onClick={(e) => { e.stopPropagation(); openDrillDown(`${group.label} / ${child.label}`, { [pFK]: group.label, [cFK]: child.label }); }}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline">
+                                    {child.label}
+                                  </button>
+                                  {child.children.length > 0 && (
+                                    <span className="text-xs text-gray-400 ml-1 cursor-pointer" onClick={() => toggleExpand(l2Key)}>
+                                      ({child.children.length})
+                                    </span>
+                                  )}
+                                </td>
+                                <TatCells row={child} />
+                              </tr>
+                              {/* L3: Estado Final */}
+                              {expanded.has(l2Key) && child.children.map((ef) => (
+                                <tr key={`${l2Key}|${ef.label}`} className="border-b border-gray-50 hover:bg-yellow-50">
+                                  <td className="py-1 px-3 pl-16 text-xs text-gray-500">
+                                    <button onClick={() => openDrillDown(`${group.label} / ${child.label} / ${ef.label}`, { [pFK]: group.label, [cFK]: child.label, estadoFinal: ef.label })}
+                                      className="text-blue-500 hover:text-blue-700 hover:underline">
+                                      {ef.label}
+                                    </button>
+                                  </td>
+                                  <TatCells row={ef} />
+                                </tr>
+                              ))}
+                            </>
+                          );
+                        })}
                       </>
                     );
                   })}
@@ -449,6 +528,11 @@ export default function PostventaReportesPage() {
         const buckets = agingData.buckets;
         const parentFilterKey = agingGroupBy === "operador" ? "segmento" : "marca";
         const childFilterKey = agingGroupBy === "operador" ? "marca" : "segmento";
+        // Base filter: aging shows ABIERTO with ingreso date
+        const agingBase: Record<string, string> = {
+          ...(cierreOdsxEstado ? {} : { cierreOdsxEstado: "ABIERTO" }),
+          withIngreso: "true",
+        };
 
         const toggleAgingExpand = (label: string) => {
           setAgingExpanded((prev) => {
@@ -482,7 +566,7 @@ export default function PostventaReportesPage() {
               return (
                 <td key={b.key} className={`py-2 px-2 text-center ${cellColor(count, bi)}`}>
                   {count > 0 ? (
-                    <button onClick={() => openDrillDown(`${row.label} / ${b.label}`, { ...f, agingMin: String(b.min), agingMax: String(b.max) })}
+                    <button onClick={() => openDrillDown(`${row.label} / ${b.label}`, { ...agingBase, ...f, agingMin: String(b.min), agingMax: String(b.max) })}
                       className="hover:underline">{count}</button>
                   ) : <span className="text-gray-300">0</span>}
                 </td>
@@ -520,49 +604,81 @@ export default function PostventaReportesPage() {
                   {/* Totals row */}
                   <tr className="border-b-2 border-gray-300 bg-gray-100 font-bold">
                     <td className="py-2.5 px-3">
-                      <button onClick={() => openDrillDown("TOTAL", {})} className="text-blue-700 hover:text-blue-900 hover:underline font-bold">TOTAL</button>
+                      <button onClick={() => openDrillDown("TOTAL", { ...agingBase })} className="text-blue-700 hover:text-blue-900 hover:underline font-bold">TOTAL</button>
                     </td>
-                    <td className="py-2.5 px-2 text-right">{totals.total}</td>
+                    <td className="py-2.5 px-2 text-right">
+                      <button onClick={() => openDrillDown("TOTAL", { ...agingBase })} className="hover:underline">{totals.total}</button>
+                    </td>
                     {buckets.map((b, bi) => {
                       const count = totals[b.key] || 0;
                       return (
                         <td key={b.key} className={`py-2.5 px-2 text-center ${cellColor(count, bi)}`}>
                           {count > 0 ? (
-                            <button onClick={() => openDrillDown(`TOTAL / ${b.label}`, { agingMin: String(b.min), agingMax: String(b.max) })}
+                            <button onClick={() => openDrillDown(`TOTAL / ${b.label}`, { ...agingBase, agingMin: String(b.min), agingMax: String(b.max) })}
                               className="hover:underline">{count}</button>
                           ) : <span className="text-gray-300">0</span>}
                         </td>
                       );
                     })}
                   </tr>
-                  {groups.map((group) => (
-                    <>
-                      <tr key={group.label} className="border-b border-gray-200 bg-gray-50 hover:bg-gray-100">
-                        <td className="py-2 px-3 font-semibold">
-                          <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggleAgingExpand(group.label)}>
-                            {agingExpanded.has(group.label) ? "▼" : "▶"}
-                          </span>
-                          <button onClick={() => openDrillDown(group.label, { [parentFilterKey]: group.label })}
-                            className="text-blue-700 hover:text-blue-900 hover:underline font-semibold">{group.label}</button>
-                          <span className="text-xs text-gray-400 ml-2 cursor-pointer" onClick={() => toggleAgingExpand(group.label)}>
-                            ({group.children.length} {childLabel.toLowerCase()}s)
-                          </span>
-                        </td>
-                        <td className="py-2 px-2 text-right font-medium">{group.total}</td>
-                        <AgingCells row={group} filters={{ [parentFilterKey]: group.label }} />
-                      </tr>
-                      {agingExpanded.has(group.label) && group.children.map((child) => (
-                        <tr key={`${group.label}-${child.label}`} className="border-b border-gray-50 hover:bg-orange-50">
-                          <td className="py-1.5 px-3 pl-10">
-                            <button onClick={() => openDrillDown(`${group.label} / ${child.label}`, { [parentFilterKey]: group.label, [childFilterKey]: child.label })}
-                              className="text-blue-600 hover:text-blue-800 hover:underline">{child.label}</button>
+                  {groups.map((group) => {
+                    const pFK = parentFilterKey;
+                    const cFK = childFilterKey;
+                    return (
+                      <>
+                        {/* L1 */}
+                        <tr key={group.label} className="border-b border-gray-200 bg-gray-50 hover:bg-gray-100">
+                          <td className="py-2 px-3 font-semibold">
+                            <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggleAgingExpand(group.label)}>
+                              {agingExpanded.has(group.label) ? "▼" : "▶"}
+                            </span>
+                            <button onClick={() => openDrillDown(group.label, { ...agingBase, [pFK]: group.label })}
+                              className="text-blue-700 hover:text-blue-900 hover:underline font-semibold">{group.label}</button>
+                            <span className="text-xs text-gray-400 ml-2 cursor-pointer" onClick={() => toggleAgingExpand(group.label)}>
+                              ({group.children.length} {childLabel.toLowerCase()}s)
+                            </span>
                           </td>
-                          <td className="py-1.5 px-2 text-right">{child.total}</td>
-                          <AgingCells row={child} filters={{ [parentFilterKey]: group.label, [childFilterKey]: child.label }} />
+                          <td className="py-2 px-2 text-right font-medium">{group.total}</td>
+                          <AgingCells row={group} filters={{ ...agingBase, [pFK]: group.label }} />
                         </tr>
-                      ))}
-                    </>
-                  ))}
+                        {/* L2 */}
+                        {agingExpanded.has(group.label) && (group.children as AgingL2[]).map((child) => {
+                          const l2Key = `${group.label}|${child.label}`;
+                          return (
+                            <>
+                              <tr key={l2Key} className="border-b border-gray-50 hover:bg-orange-50">
+                                <td className="py-1.5 px-3 pl-8">
+                                  <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggleAgingExpand(l2Key)}>
+                                    {agingExpanded.has(l2Key) ? "▼" : "▶"}
+                                  </span>
+                                  <button onClick={() => openDrillDown(`${group.label} / ${child.label}`, { ...agingBase, [pFK]: group.label, [cFK]: child.label })}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline">{child.label}</button>
+                                  {child.children && child.children.length > 0 && (
+                                    <span className="text-xs text-gray-400 ml-1 cursor-pointer" onClick={() => toggleAgingExpand(l2Key)}>
+                                      ({child.children.length})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-2 text-right">{child.total}</td>
+                                <AgingCells row={child} filters={{ ...agingBase, [pFK]: group.label, [cFK]: child.label }} />
+                              </tr>
+                              {/* L3: Estado Final */}
+                              {agingExpanded.has(l2Key) && child.children && child.children.map((ef) => (
+                                <tr key={`${l2Key}|${ef.label}`} className="border-b border-gray-50 hover:bg-yellow-50">
+                                  <td className="py-1 px-3 pl-16 text-xs text-gray-500">
+                                    <button onClick={() => openDrillDown(`${group.label} / ${child.label} / ${ef.label}`, { ...agingBase, [pFK]: group.label, [cFK]: child.label, estadoFinal: ef.label })}
+                                      className="text-blue-500 hover:text-blue-700 hover:underline">{ef.label}</button>
+                                  </td>
+                                  <td className="py-1 px-2 text-right text-xs">{ef.total}</td>
+                                  <AgingCells row={ef} filters={{ ...agingBase, [pFK]: group.label, [cFK]: child.label, estadoFinal: ef.label }} />
+                                </tr>
+                              ))}
+                            </>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
                   {groups.length === 0 && (
                     <tr><td colSpan={2 + buckets.length} className="py-6 text-center text-gray-400">No hay órdenes abiertas</td></tr>
                   )}
@@ -571,6 +687,297 @@ export default function PostventaReportesPage() {
             </div>
             <div className="mt-3 text-xs text-gray-500">
               * Días calendario desde ingreso al {new Date(agingData.asOfDate).toLocaleDateString("es-PE")}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Pendientes Pre-ODS Tab */}
+      {!loading && tab === "pendientes" && pendData && (() => {
+        const groups = pendGroupBy === "operador" ? pendData.byOperador : pendData.byMarca;
+        const parentLabel = pendGroupBy === "operador" ? "Operador" : "Marca";
+        const childLabel = pendGroupBy === "operador" ? "Marca" : "Operador";
+        const buckets = pendData.buckets;
+        const pFK = pendGroupBy === "operador" ? "segmento" : "marca";
+        const cFK = pendGroupBy === "operador" ? "marca" : "segmento";
+
+        const togglePendExpand = (label: string) => {
+          setPendExpanded((prev) => {
+            const next = new Set(prev);
+            if (next.has(label)) next.delete(label); else next.add(label);
+            return next;
+          });
+        };
+
+        const cellColor = (count: number, bucketIdx: number) => {
+          if (count === 0) return "";
+          if (bucketIdx >= 8) return "bg-red-200 text-red-900 font-bold";
+          if (bucketIdx >= 7) return "bg-red-100 text-red-800 font-semibold";
+          if (bucketIdx >= 5) return "bg-orange-100 text-orange-800";
+          return "bg-yellow-50 text-yellow-800";
+        };
+
+        const totals: Record<string, number> = { total: 0 };
+        for (const b of buckets) totals[b.key] = 0;
+        for (const g of groups) {
+          totals.total += g.total;
+          for (const b of buckets) totals[b.key] += (g[b.key] as number) || 0;
+        }
+
+        const PendCells = ({ row, filters: f }: { row: AgingRow; filters: Record<string, string> }) => (
+          <>
+            {buckets.map((b, bi) => {
+              const count = (row[b.key] as number) || 0;
+              return (
+                <td key={b.key} className={`py-2 px-2 text-center ${cellColor(count, bi)}`}>
+                  {count > 0 ? (
+                    <button onClick={() => openDrillDown(`${row.label} / ${b.label}`, { ...f, sinOds: "true", agingMin: String(b.min), agingMax: String(b.max) })}
+                      className="hover:underline">{count}</button>
+                  ) : <span className="text-gray-300">0</span>}
+                </td>
+              );
+            })}
+          </>
+        );
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center gap-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">Pendientes Pre-ODS (sin ODS asignado)</h3>
+              <select value={pendGroupBy} onChange={(e) => { setPendGroupBy(e.target.value as "operador" | "marca"); setPendExpanded(new Set()); }}
+                className="border rounded-lg px-3 py-1 text-sm">
+                <option value="operador">Por Operador</option>
+                <option value="marca">Por Marca</option>
+              </select>
+              <button onClick={() => setPendExpanded(pendExpanded.size === groups.length ? new Set() : new Set(groups.map((g) => g.label)))}
+                className="text-xs text-blue-600 hover:text-blue-800">
+                {pendExpanded.size === groups.length ? "Colapsar todo" : "Expandir todo"}
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-2 px-3 font-medium text-gray-600">{parentLabel}</th>
+                    <th className="text-right py-2 px-2 font-medium text-gray-600">Total</th>
+                    {buckets.map((b) => (
+                      <th key={b.key} className="text-center py-2 px-2 font-medium text-gray-600">{b.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Totals */}
+                  <tr className="border-b-2 border-gray-300 bg-gray-100 font-bold">
+                    <td className="py-2.5 px-3">
+                      <button onClick={() => openDrillDown("TOTAL Pendientes", { sinOds: "true" })} className="text-blue-700 hover:text-blue-900 hover:underline font-bold">TOTAL</button>
+                    </td>
+                    <td className="py-2.5 px-2 text-right">
+                      <button onClick={() => openDrillDown("TOTAL Pendientes", { sinOds: "true" })} className="hover:underline">{totals.total}</button>
+                    </td>
+                    {buckets.map((b, bi) => {
+                      const count = totals[b.key] || 0;
+                      return (
+                        <td key={b.key} className={`py-2.5 px-2 text-center ${cellColor(count, bi)}`}>
+                          {count > 0 ? (
+                            <button onClick={() => openDrillDown(`TOTAL / ${b.label}`, { sinOds: "true", agingMin: String(b.min), agingMax: String(b.max) })}
+                              className="hover:underline">{count}</button>
+                          ) : <span className="text-gray-300">0</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {groups.map((group) => (
+                    <>
+                      {/* L1 */}
+                      <tr key={group.label} className="border-b border-gray-200 bg-gray-50 hover:bg-gray-100">
+                        <td className="py-2 px-3 font-semibold">
+                          <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => togglePendExpand(group.label)}>
+                            {pendExpanded.has(group.label) ? "▼" : "▶"}
+                          </span>
+                          <span className="font-semibold">{group.label}</span>
+                          <span className="text-xs text-gray-400 ml-2 cursor-pointer" onClick={() => togglePendExpand(group.label)}>
+                            ({group.children.length} {childLabel.toLowerCase()}s)
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-right font-medium">{group.total}</td>
+                        <PendCells row={group} filters={{ [pFK]: group.label }} />
+                      </tr>
+                      {/* L2 */}
+                      {pendExpanded.has(group.label) && (group.children as AgingL2[]).map((child) => {
+                        const l2Key = `${group.label}|${child.label}`;
+                        return (
+                          <>
+                            <tr key={l2Key} className="border-b border-gray-50 hover:bg-orange-50">
+                              <td className="py-1.5 px-3 pl-8">
+                                <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => togglePendExpand(l2Key)}>
+                                  {pendExpanded.has(l2Key) ? "▼" : "▶"}
+                                </span>
+                                <span>{child.label}</span>
+                                {child.children && child.children.length > 0 && (
+                                  <span className="text-xs text-gray-400 ml-1 cursor-pointer" onClick={() => togglePendExpand(l2Key)}>
+                                    ({child.children.length})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-1.5 px-2 text-right">{child.total}</td>
+                              <PendCells row={child} filters={{ [pFK]: group.label, [cFK]: child.label }} />
+                            </tr>
+                            {/* L3: Estado Final */}
+                            {pendExpanded.has(l2Key) && child.children && child.children.map((ef) => (
+                              <tr key={`${l2Key}|${ef.label}`} className="border-b border-gray-50 hover:bg-yellow-50">
+                                <td className="py-1 px-3 pl-16 text-xs text-gray-500">{ef.label}</td>
+                                <td className="py-1 px-2 text-right text-xs">{ef.total}</td>
+                                <PendCells row={ef} filters={{ [pFK]: group.label, [cFK]: child.label, estadoFinal: ef.label }} />
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
+                    </>
+                  ))}
+                  {groups.length === 0 && (
+                    <tr><td colSpan={2 + buckets.length} className="py-6 text-center text-gray-400">No hay pre-ordenes pendientes sin ODS</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              * Días calendario desde fecha de pre-orden al {new Date(pendData.asOfDate).toLocaleDateString("es-PE")}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Pendientes Diario Tab */}
+      {!loading && tab === "pendientes-diario" && pendDiarioData && (() => {
+        const days = pendDiarioData.data;
+        const pFK = pendDiarioGroupBy === "operador" ? "segmento" : "marca";
+        const cFK = pendDiarioGroupBy === "operador" ? "marca" : "segmento";
+        const l1Label = pendDiarioGroupBy === "operador" ? "Operador" : "Marca";
+        const l2Label = pendDiarioGroupBy === "operador" ? "Marca" : "Operador";
+
+        const toggle = (key: string) => {
+          setPendDiarioExpanded((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key); else next.add(key);
+            return next;
+          });
+        };
+
+        const grandTotal = days.reduce((s, d) => s + d.total, 0);
+
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center gap-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Pendientes Pre-ODS por Día ({grandTotal} total)
+              </h3>
+              <select value={pendDiarioGroupBy} onChange={(e) => { setPendDiarioGroupBy(e.target.value as "operador" | "marca"); setPendDiarioExpanded(new Set()); }}
+                className="border rounded-lg px-3 py-1 text-sm">
+                <option value="operador">Por Operador</option>
+                <option value="marca">Por Marca</option>
+              </select>
+              <button onClick={() => setPendDiarioExpanded(pendDiarioExpanded.size === days.length ? new Set() : new Set(days.map((d) => d.fecha)))}
+                className="text-xs text-blue-600 hover:text-blue-800">
+                {pendDiarioExpanded.size === days.length ? "Colapsar todo" : "Expandir todo"}
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[700px] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white z-10">
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-2 px-3 font-medium text-gray-600">Fecha / {l1Label} / {l2Label} / Estado</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-600">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Grand total */}
+                  <tr className="border-b-2 border-gray-300 bg-gray-100 font-bold">
+                    <td className="py-2.5 px-3">
+                      <button onClick={() => openDrillDown("TOTAL Pendientes", { sinOds: "true" })}
+                        className="text-blue-700 hover:text-blue-900 hover:underline font-bold">TOTAL</button>
+                    </td>
+                    <td className="py-2.5 px-3 text-right">{grandTotal}</td>
+                  </tr>
+                  {days.map((day) => {
+                    const dayKey = day.fecha;
+                    const dayLabel = new Date(day.fecha + "T12:00:00").toLocaleDateString("es-PE", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+                    return (
+                      <>
+                        {/* Day row */}
+                        <tr key={dayKey} className="border-b border-gray-200 bg-gray-50 hover:bg-gray-100">
+                          <td className="py-2 px-3 font-semibold">
+                            <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggle(dayKey)}>
+                              {pendDiarioExpanded.has(dayKey) ? "▼" : "▶"}
+                            </span>
+                            <button onClick={() => openDrillDown(`Pendientes ${dayLabel}`, { sinOds: "true", preordenFecha: day.fecha })}
+                              className="text-blue-700 hover:text-blue-900 hover:underline font-semibold">{dayLabel}</button>
+                            <span className="text-xs text-gray-400 ml-2 cursor-pointer" onClick={() => toggle(dayKey)}>
+                              ({day.children.length} {l1Label.toLowerCase()}s)
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right font-medium">{day.total}</td>
+                        </tr>
+                        {/* L1: Operador or Marca */}
+                        {pendDiarioExpanded.has(dayKey) && day.children.map((l1) => {
+                          const l1Key = `${dayKey}|${l1.label}`;
+                          return (
+                            <>
+                              <tr key={l1Key} className="border-b border-gray-50 hover:bg-orange-50">
+                                <td className="py-1.5 px-3 pl-8">
+                                  <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggle(l1Key)}>
+                                    {pendDiarioExpanded.has(l1Key) ? "▼" : "▶"}
+                                  </span>
+                                  <button onClick={() => openDrillDown(`${dayLabel} / ${l1.label}`, { sinOds: "true", preordenFecha: day.fecha, [pFK]: l1.label })}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline">{l1.label}</button>
+                                  {l1.children.length > 0 && (
+                                    <span className="text-xs text-gray-400 ml-1 cursor-pointer" onClick={() => toggle(l1Key)}>({l1.children.length})</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 px-3 text-right">{l1.total}</td>
+                              </tr>
+                              {/* L2: Marca or Operador */}
+                              {pendDiarioExpanded.has(l1Key) && l1.children.map((l2) => {
+                                const l2Key = `${l1Key}|${l2.label}`;
+                                return (
+                                  <>
+                                    <tr key={l2Key} className="border-b border-gray-50 hover:bg-yellow-50">
+                                      <td className="py-1 px-3 pl-14">
+                                        <span className="inline-block w-4 text-gray-400 mr-1 cursor-pointer" onClick={() => toggle(l2Key)}>
+                                          {pendDiarioExpanded.has(l2Key) ? "▼" : "▶"}
+                                        </span>
+                                        <button onClick={() => openDrillDown(`${dayLabel} / ${l1.label} / ${l2.label}`, { sinOds: "true", preordenFecha: day.fecha, [pFK]: l1.label, [cFK]: l2.label })}
+                                          className="text-blue-500 hover:text-blue-700 hover:underline text-xs">{l2.label}</button>
+                                        {l2.children.length > 0 && (
+                                          <span className="text-xs text-gray-400 ml-1 cursor-pointer" onClick={() => toggle(l2Key)}>({l2.children.length})</span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 px-3 text-right text-xs">{l2.total}</td>
+                                    </tr>
+                                    {/* L3: Estado Final */}
+                                    {pendDiarioExpanded.has(l2Key) && l2.children.map((l3) => (
+                                      <tr key={`${l2Key}|${l3.label}`} className="border-b border-gray-50 hover:bg-gray-50">
+                                        <td className="py-1 px-3 pl-20 text-xs text-gray-500">
+                                          <button onClick={() => openDrillDown(`${dayLabel} / ${l1.label} / ${l2.label} / ${l3.label}`, { sinOds: "true", preordenFecha: day.fecha, [pFK]: l1.label, [cFK]: l2.label, estadoFinal: l3.label })}
+                                            className="text-blue-400 hover:text-blue-600 hover:underline">{l3.label}</button>
+                                        </td>
+                                        <td className="py-1 px-3 text-right text-xs">{l3.total}</td>
+                                      </tr>
+                                    ))}
+                                  </>
+                                );
+                              })}
+                            </>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
+                  {days.length === 0 && (
+                    <tr><td colSpan={2} className="py-6 text-center text-gray-400">No hay pre-ordenes pendientes sin ODS</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         );

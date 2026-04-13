@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
   if (condicionCalculada) where.condicionCalculada = condicionCalculada;
   const cierreOdsxEstado = searchParams.get("cierreOdsxEstado");
   if (cierreOdsxEstado) where.cierreOdsxEstado = cierreOdsxEstado;
+  const sucursal = searchParams.get("sucursal");
+  if (sucursal) where.sucursal = sucursal;
+  const canal = searchParams.get("canal");
+  if (canal) where.canal = canal;
   const pais = searchParams.get("pais");
   if (pais) where.pais = pais;
 

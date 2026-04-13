@@ -34,6 +34,8 @@ interface Filters {
   estadosOrden: string[];
   cierresOds: string[];
   gestionables: string[];
+  sucursales: string[];
+  canales: string[];
   paises: string[];
   anos: number[];
   meses: number[];
@@ -49,6 +51,7 @@ interface Orden {
   sucursal: string;
   cierreOdsxEstado: string;
   estadoOperativo: string;
+  estadoOrden?: string;
   tatGarantiasCalc: number | null;
   cumplTatGarantiaCalc: boolean | null;
   ingreso: string;
@@ -67,6 +70,8 @@ export default function PostventaDashboard() {
   const [estadoOrden, setEstadoOrden] = useState("");
   const [cierreOdsxEstado, setCierreOdsxEstado] = useState("");
   const [gestionable, setGestionable] = useState("");
+  const [sucursal, setSucursal] = useState("");
+  const [canal, setCanal] = useState("");
   const [pais, setPais] = useState("");
 
   const [stats, setStats] = useState<Stats | null>(null);
@@ -90,9 +95,11 @@ export default function PostventaDashboard() {
     if (estadoOrden) params.set("estadoOrden", estadoOrden);
     if (cierreOdsxEstado) params.set("cierreOdsxEstado", cierreOdsxEstado);
     if (gestionable) params.set("gestionable", gestionable);
+    if (sucursal) params.set("sucursal", sucursal);
+    if (canal) params.set("canal", canal);
     if (pais) params.set("pais", pais);
     return params.toString();
-  }, [anoIng, mesIng, segmento, marca, ciudadHomologada, tipoDeZona, estadoOrden, cierreOdsxEstado, gestionable, pais]);
+  }, [anoIng, mesIng, segmento, marca, ciudadHomologada, tipoDeZona, estadoOrden, cierreOdsxEstado, gestionable, sucursal, canal, pais]);
 
   // Load filters once
   useEffect(() => {
@@ -211,6 +218,8 @@ export default function PostventaDashboard() {
             <FilterSelect label="Estado Orden" value={estadoOrden} onChange={setEstadoOrden} options={filters.estadosOrden} />
             <FilterSelect label="Cierre ODS" value={cierreOdsxEstado} onChange={setCierreOdsxEstado} options={filters.cierresOds} />
             <FilterSelect label="Gestionable" value={gestionable} onChange={setGestionable} options={filters.gestionables} />
+            <FilterSelect label="Sucursal" value={sucursal} onChange={setSucursal} options={filters.sucursales} />
+            <FilterSelect label="Canal" value={canal} onChange={setCanal} options={filters.canales} />
             <FilterSelect label="País" value={pais} onChange={setPais} options={filters.paises} />
           </div>
         </div>

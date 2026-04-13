@@ -32,13 +32,36 @@ export async function GET(request: NextRequest) {
   if (ciudadHomologada) where.ciudadHomologada = ciudadHomologada;
   const tipoDeZona = searchParams.get("tipoDeZona");
   if (tipoDeZona) where.tipoDeZona = tipoDeZona;
+  const sucursal = searchParams.get("sucursal");
+  if (sucursal) where.sucursal = sucursal;
+  const canal = searchParams.get("canal");
+  if (canal) where.canal = canal;
   const pais = searchParams.get("pais");
   if (pais) where.pais = pais;
+  const estadoFinal = searchParams.get("estadoFinal");
+  if (estadoFinal) where.estadoFinal = estadoFinal;
+  const sinOds = searchParams.get("sinOds");
+  if (sinOds === "true") {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      { OR: [{ odsNumero: null }, { odsNumero: "" }] },
+    ];
+  }
+  const withIngreso = searchParams.get("withIngreso");
+  if (withIngreso === "true") {
+    where.ingreso = { not: null };
+  }
+  const preordenFecha = searchParams.get("preordenFecha");
+  if (preordenFecha) {
+    const dayStart = new Date(preordenFecha + "T00:00:00.000Z");
+    const dayEnd = new Date(preordenFecha + "T23:59:59.999Z");
+    where.preorden = { gte: dayStart, lte: dayEnd };
+  }
 
   const ordenes = await prisma.postventaOrden.findMany({
     where,
     select: {
-      odsNumero: true, preodsNumero: true, imei: true,
+      odsNumero: true, preodsNumero: true, imei: true, preorden: true,
       segmento: true, marca: true, modelo: true,
       sucursal: true, ciudad: true, ciudadHomologada: true, tipoDeZona: true,
       cierreOdsxEstado: true, estadoOperativo: true, estadoFinal: true,
@@ -96,6 +119,7 @@ export async function GET(request: NextRequest) {
     return {
       ods: o.odsNumero,
       preods: o.preodsNumero,
+      preorden: fmtDate(o.preorden),
       imei: o.imei,
       operador: o.segmento,
       marca: o.marca,
@@ -143,13 +167,15 @@ export async function GET(request: NextRequest) {
   // Filter by aging day range if specified
   const agingMin = searchParams.get("agingMin");
   const agingMax = searchParams.get("agingMax");
+  const agingDateField = sinOds === "true" ? "preorden" : "ingreso";
   let filtered = data;
   if (agingMin !== null || agingMax !== null) {
     const minDays = agingMin ? parseFloat(agingMin) : 0;
     const maxDays = agingMax ? parseFloat(agingMax) : 9999;
     filtered = data.filter((row) => {
-      if (!row.ingreso) return false;
-      const days = (today.getTime() - new Date(row.ingreso as string).getTime()) / (1000 * 60 * 60 * 24);
+      const dateVal = row[agingDateField] as string;
+      if (!dateVal) return false;
+      const days = (today.getTime() - new Date(dateVal).getTime()) / (1000 * 60 * 60 * 24);
       return days >= minDays && days < maxDays;
     });
   }

@@ -111,7 +111,9 @@ function buildRawWhereNoSource(filters: RemanufacturaFilterSet): { conditions: s
 
 /**
  * Build the SQL condition for cycle-entry events.
- * DirecTV: specific transaction types arriving at IQREC00 orgs.
+ * DirecTV cycle entry:
+ *   - 'Recepciones Varias' or 'Transferencia Directa Entre Organizaciones' to orgDestino IQREC00*
+ *   - 'Recepción en tránsito' from orgOrigen IQREC00*
  * Other clients: INGRESO etapa with 'Recepciones varias'.
  * WMS (all clients): DIAGNOSTICO etapa.
  */
@@ -119,12 +121,14 @@ function buildCycleEntrySQL(filters: RemanufacturaFilterSet): string {
   if (filters.cliente === 'DIRECTV') {
     return `(
       ("tipoTransaccion" IN ('Recepciones Varias', 'Recepciones varias', 'Transferencia Directa Entre Organizaciones') AND "orgDestino" LIKE 'IQREC00%')
+      OR ("tipoTransaccion" = 'Recepción en tránsito' AND "orgOrigen" LIKE 'IQREC00%')
       OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
     )`;
   }
   // Non-DirecTV or all-clients view: include both DirecTV + legacy logic
   return `(
     ("tipoTransaccion" IN ('Recepciones Varias', 'Recepciones varias', 'Transferencia Directa Entre Organizaciones') AND "orgDestino" LIKE 'IQREC00%')
+    OR ("tipoTransaccion" = 'Recepción en tránsito' AND "orgOrigen" LIKE 'IQREC00%')
     OR ("etapa" = 'INGRESO' AND "tipoTransaccion" = 'Recepciones varias')
     OR ("source" = 'WMS' AND "etapa" = 'DIAGNOSTICO')
   )`;

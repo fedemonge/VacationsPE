@@ -146,6 +146,7 @@ async function processImport(importId: string, rows: ReturnType<typeof parsePost
               marca: row.marca,
               modelo: row.modelo,
               sucursal: row.sucursal,
+              canal: row.sucursal?.startsWith("B2B") ? "B2B" : "B2C",
               ciudad: row.ciudad,
               pais: row.pais || "PERU",
               preorden: row.preorden,
@@ -211,14 +212,16 @@ async function processImport(importId: string, rows: ReturnType<typeof parsePost
               ...tats,
             };
 
-            // Upsert by ODS number: update if exists, create if not
-            const existingOds = row.odsNumero
+            // Upsert by ODS number (or preodsNumero if no ODS)
+            const existing = row.odsNumero
               ? await tx.postventaOrden.findFirst({ where: { odsNumero: row.odsNumero } })
-              : null;
+              : row.preodsNumero
+                ? await tx.postventaOrden.findFirst({ where: { preodsNumero: row.preodsNumero, odsNumero: null } })
+                : null;
 
-            if (existingOds) {
+            if (existing) {
               await tx.postventaOrden.update({
-                where: { id: existingOds.id },
+                where: { id: existing.id },
                 data,
               });
               updated++;

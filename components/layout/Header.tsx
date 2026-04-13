@@ -290,8 +290,6 @@ export default function Header() {
   function getSectionName(): string {
     if (pathname?.startsWith("/remanufactura")) return "Remanufactura";
     if (pathname?.startsWith("/recupero")) return "Recupero";
-    if (pathname?.startsWith("/fec")) return "FEC";
-    if (pathname?.startsWith("/planilla")) return "Planilla Peru";
     if (
       pathname?.startsWith("/solicitudes-personal") ||
       pathname?.startsWith("/panel/personal") ||

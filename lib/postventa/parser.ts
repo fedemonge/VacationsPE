@@ -89,8 +89,8 @@ export function parsePostventaFile(buffer: Buffer, fileName: string): PostventaO
       if (field) raw[field] = cols[i];
     }
 
-    // Skip rows without an ODS number
-    if (!raw.odsNumero || raw.odsNumero.trim() === "") continue;
+    // Skip rows without either ODS or pre-ODS number
+    if ((!raw.odsNumero || raw.odsNumero.trim() === "") && (!raw.preodsNumero || raw.preodsNumero.trim() === "")) continue;
 
     // Build typed row
     const row: Record<string, unknown> = {};

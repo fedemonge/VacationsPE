@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -48,6 +48,14 @@ const ETAPA_COLORS: Record<string, string> = {
 };
 
 export default function SerieDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Cargando...</div>}>
+      <SerieDetailContent />
+    </Suspense>
+  );
+}
+
+function SerieDetailContent() {
   const { authenticated } = useAuth();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("s") || "");

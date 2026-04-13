@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ensureEmployeeColumns } from "@/lib/ensure-employee-schema";
 
 function isSelfSupervisorPosition(position: string): boolean {
   const p = position.toLowerCase().trim();
@@ -33,7 +32,6 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  await ensureEmployeeColumns();
   try {
     const body = await request.json();
     const {
@@ -64,7 +62,6 @@ export async function PATCH(
       has5taCatExemption,
       bankName,
       bankAccountNumber,
-      shiftId,
     } = body;
 
     const data: Record<string, unknown> = {};
@@ -106,7 +103,6 @@ export async function PATCH(
     if (has5taCatExemption !== undefined) data.has5taCatExemption = has5taCatExemption;
     if (bankName !== undefined) data.bankName = bankName || null;
     if (bankAccountNumber !== undefined) data.bankAccountNumber = bankAccountNumber || null;
-    if (shiftId !== undefined) data.shiftId = shiftId || null;
 
     // Enforce self-supervisor for Gerente General / Country Manager
     const effectivePosition = (position ?? (await prisma.employee.findUnique({ where: { id: params.id }, select: { position: true } }))?.position) as string | undefined;

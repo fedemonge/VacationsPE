@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       const isCycleEntry = isDirectv
         ? (
             ((t.tipoTransaccion === "Recepciones Varias" || t.tipoTransaccion === "Recepciones varias" || t.tipoTransaccion === "Transferencia Directa Entre Organizaciones") && t.orgDestino?.startsWith("IQREC00"))
+            || (t.tipoTransaccion === "Recepción en tránsito" && t.orgOrigen?.startsWith("IQREC00"))
             || (t.source === "WMS" && t.etapa === "DIAGNOSTICO")
           )
         : (
@@ -116,6 +117,7 @@ export async function GET(request: NextRequest) {
       (mapped[i] as Record<string, unknown>).esIngreso = isDirectv
         ? (
             ((t2.tipoTransaccion === "Recepciones Varias" || t2.tipoTransaccion === "Recepciones varias" || t2.tipoTransaccion === "Transferencia Directa Entre Organizaciones") && t2.orgDestino?.startsWith("IQREC00"))
+            || (t2.tipoTransaccion === "Recepción en tránsito" && t2.orgOrigen?.startsWith("IQREC00"))
             || (t2.source === "WMS" && t2.etapa === "DIAGNOSTICO")
           )
         : (

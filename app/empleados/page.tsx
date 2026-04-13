@@ -2,15 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 
-interface Shift {
-  id: string;
-  code: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  effectiveHours: number;
-}
-
 interface Employee {
   id: string;
   employeeCode: string;
@@ -40,8 +31,6 @@ interface Employee {
   has5taCatExemption: boolean;
   bankName: string | null;
   bankAccountNumber: string | null;
-  shiftId: string | null;
-  shift: Shift | null;
 }
 
 const EMPTY_FORM = {
@@ -72,7 +61,6 @@ const EMPTY_FORM = {
   has5taCatExemption: false,
   bankName: "",
   bankAccountNumber: "",
-  shiftId: "",
 };
 
 const CONTRACT_TYPES = ["INDEFINIDO", "PLAZO_FIJO", "PARCIAL", "FORMATIVO"];
@@ -97,7 +85,6 @@ export default function EmpleadosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [sortColumn, setSortColumn] = useState<string>("fullName");
@@ -113,7 +100,6 @@ export default function EmpleadosPage() {
   useEffect(() => {
     loadEmployees();
     loadCostCenters();
-    loadShifts();
   }, []);
 
   async function loadCostCenters() {
@@ -124,13 +110,6 @@ export default function EmpleadosPage() {
     } catch {
       // ignore
     }
-  }
-
-  async function loadShifts() {
-    try {
-      const res = await fetch("/api/planilla/turnos");
-      if (res.ok) setShifts(await res.json());
-    } catch { /* ignore */ }
   }
 
   async function loadEmployees() {
@@ -181,7 +160,6 @@ export default function EmpleadosPage() {
       has5taCatExemption: emp.has5taCatExemption || false,
       bankName: emp.bankName || "",
       bankAccountNumber: emp.bankAccountNumber || "",
-      shiftId: emp.shiftId || "",
     });
     setEditingId(emp.id);
     setShowForm(true);
@@ -225,7 +203,6 @@ export default function EmpleadosPage() {
       pensionProvider: form.pensionProvider || null,
       bankName: form.bankName || null,
       bankAccountNumber: form.bankAccountNumber || null,
-      shiftId: form.shiftId || null,
     };
 
     try {
@@ -679,13 +656,6 @@ export default function EmpleadosPage() {
                   </select>
                 </div>
               )}
-              <div>
-                <label className="label-field">Turno</label>
-                <select className="input-field" value={form.shiftId} onChange={(e) => setForm({ ...form, shiftId: e.target.value })}>
-                  <option value="">Sin turno</option>
-                  {shifts.map((s) => <option key={s.id} value={s.id}>{s.code} - {s.name} ({s.startTime}-{s.endTime})</option>)}
-                </select>
-              </div>
               <div>
                 <label className="label-field">Banco</label>
                 <input type="text" className="input-field" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="BBVA, BCP, Scotiabank..." />

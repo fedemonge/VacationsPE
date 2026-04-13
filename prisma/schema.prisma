@@ -25,77 +25,65 @@ model Employee {
   updatedAt       DateTime  @updatedAt
 
   // Payroll fields
-  documentType        String    @default("DNI")
-  documentNumber      String?
-  birthDate           DateTime?
-  gender              String?
-  contractType        String    @default("INDEFINIDO")
-  contractStart       DateTime?
-  contractEnd         DateTime?
-  baseSalary          Float     @default(0)
-  pensionSystem       String    @default("AFP")
-  pensionProvider     String?
-  hasDependents       Boolean   @default(false)
-  has5taCatExemption  Boolean   @default(false)
-  bankName            String?
-  bankAccountNumber   String?
-  shiftId             String?
-  shift               WorkShift? @relation(fields: [shiftId], references: [id])
-  payrollCompanyId    String?
-  payrollCompany      FecCompany? @relation("EmployeePayrollCompany", fields: [payrollCompanyId], references: [id])
+  documentType       String    @default("DNI")
+  documentNumber     String?
+  birthDate          DateTime?
+  gender             String?
+  contractType       String    @default("INDEFINIDO")
+  contractStart      DateTime?
+  contractEnd        DateTime?
+  baseSalary         Float     @default(0)
+  pensionSystem      String    @default("AFP")
+  pensionProvider    String?
+  hasDependents      Boolean   @default(false)
+  has5taCatExemption Boolean   @default(false)
+  bankName           String?
+  bankAccountNumber  String?
 
   vacationRequests    VacationRequest[]
   earlyReturnRequests EarlyReturnRequest[]
   cashOutRequests     VacationCashOutRequest[]
   vacationAccruals    VacationAccrual[]
-  biometricRecords    BiometricRecord[]
   balanceAdjustments  BalanceAdjustment[]
   orgPositions        OrgPosition[]
-  staffRequestHires   StaffRequest[] @relation("StaffRequestHire")
-  payrollDetails      PayrollDetail[]
-  attendanceRecords   AttendanceRecord[]
-  fecRoleAssignments  FecRoleAssignment[]
-  fecIdeasLed         FecIdea[] @relation("FecIdeaLead")
-  fecCompanyAccess    FecUserCompanyAccess[]
-
-  @@index([shiftId])
+  staffRequestHires   StaffRequest[]           @relation("StaffRequestHire")
 }
 
 model VacationRequest {
-  id                    String    @id @default(uuid())
-  employeeId            String
-  employeeName          String
-  employeeCode          String
-  employeeEmail         String
-  supervisorName        String
-  supervisorEmail       String
-  dateFrom              DateTime
-  dateTo                DateTime
-  totalDays             Int
-  status                String    @default("PENDIENTE")
-  currentApprovalLevel  Int       @default(0)
-  powerAutomateFlowId   String?
-  cancelledAt           DateTime?
-  cancelReason          String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  employeeId           String
+  employeeName         String
+  employeeCode         String
+  employeeEmail        String
+  supervisorName       String
+  supervisorEmail      String
+  dateFrom             DateTime
+  dateTo               DateTime
+  totalDays            Int
+  status               String    @default("PENDIENTE")
+  currentApprovalLevel Int       @default(0)
+  powerAutomateFlowId  String?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  employee            Employee             @relation(fields: [employeeId], references: [id])
+  employee             Employee              @relation(fields: [employeeId], references: [id])
   vacationConsumptions VacationConsumption[]
-  earlyReturnRequests EarlyReturnRequest[]
+  earlyReturnRequests  EarlyReturnRequest[]
 }
 
 model EarlyReturnRequest {
-  id                      String   @id @default(uuid())
-  vacationRequestId       String
-  employeeId              String
-  returnDate              DateTime
-  employeeJustification   String
-  approverJustification   String   @default("")
-  status                  String   @default("NIVEL_1_PENDIENTE")
-  currentApprovalLevel    Int      @default(1)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  vacationRequestId     String
+  employeeId            String
+  returnDate            DateTime
+  employeeJustification String
+  approverJustification String   @default("")
+  status                String   @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel  Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   vacationRequest VacationRequest @relation(fields: [vacationRequestId], references: [id])
   employee        Employee        @relation(fields: [employeeId], references: [id])
@@ -135,34 +123,34 @@ model VacationConsumption {
 }
 
 model VacationCashOutRequest {
-  id                    String   @id @default(uuid())
-  employeeId            String
-  employeeName          String
-  employeeCode          String
-  employeeEmail         String
-  supervisorName        String
-  supervisorEmail       String
-  daysRequested         Int
-  status                String   @default("NIVEL_1_PENDIENTE")
-  currentApprovalLevel  Int      @default(1)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  employeeId           String
+  employeeName         String
+  employeeCode         String
+  employeeEmail        String
+  supervisorName       String
+  supervisorEmail      String
+  daysRequested        Int
+  status               String   @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   employee     Employee              @relation(fields: [employeeId], references: [id])
   consumptions VacationConsumption[]
 }
 
 model ApprovalRecord {
-  id                    String    @id @default(uuid())
-  requestId             String
-  requestType           String
-  approverEmail         String
-  approverName          String
-  level                 Int
-  status                String    @default("PENDIENTE")
-  decidedAt             DateTime?
-  comments              String?
-  createdAt             DateTime  @default(now())
+  id            String    @id @default(uuid())
+  requestId     String
+  requestType   String
+  approverEmail String
+  approverName  String
+  level         Int
+  status        String    @default("PENDIENTE")
+  decidedAt     DateTime?
+  comments      String?
+  createdAt     DateTime  @default(now())
 
   @@index([requestId])
 }
@@ -177,16 +165,16 @@ model SystemConfiguration {
 }
 
 model BalanceAdjustment {
-  id            String   @id @default(uuid())
-  employeeId    String
-  accrualYear   Int
-  adjustmentType String  // CARGA_INICIAL | AJUSTE_MANUAL | CORRECCION
-  previousValue Float
-  newValue      Float
-  daysDelta     Float    // newValue - previousValue
-  reason        String
-  adjustedBy    String   // email of who made the adjustment
-  createdAt     DateTime @default(now())
+  id             String   @id @default(uuid())
+  employeeId     String
+  accrualYear    Int
+  adjustmentType String // CARGA_INICIAL | AJUSTE_MANUAL | CORRECCION
+  previousValue  Float
+  newValue       Float
+  daysDelta      Float // newValue - previousValue
+  reason         String
+  adjustedBy     String // email of who made the adjustment
+  createdAt      DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
@@ -203,39 +191,23 @@ model CostCenter {
   updatedAt        DateTime @updatedAt
 }
 
-model BiometricRecord {
-  id           String    @id @default(uuid())
-  employeeId   String
-  employeeCode String
-  date         DateTime
-  clockIn      DateTime?
-  clockOut     DateTime?
-  absenceType  String?
-  source       String    @default("BIOMETRICO")
-  importedAt   DateTime  @default(now())
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-
-  @@index([employeeId, date])
-}
-
 model OrgPosition {
-  id                String    @id @default(uuid())
-  positionCode      String    @unique
+  id                String   @id @default(uuid())
+  positionCode      String   @unique
   title             String
   costCenter        String
-  costCenterDesc    String    @default("")
+  costCenterDesc    String   @default("")
   reportsToEmail    String
   employeeId        String?
-  positionType      String    @default("REGULAR")
-  status            String    @default("VACANTE")
+  positionType      String   @default("REGULAR")
+  status            String   @default("VACANTE")
   thirdPartyName    String?
   thirdPartyCompany String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  employee       Employee?      @relation(fields: [employeeId], references: [id])
-  staffRequests  StaffRequest[]
+  employee      Employee?      @relation(fields: [employeeId], references: [id])
+  staffRequests StaffRequest[]
 
   @@index([reportsToEmail])
   @@index([costCenter])
@@ -243,28 +215,28 @@ model OrgPosition {
 }
 
 model StaffRequest {
-  id                    String    @id @default(uuid())
-  requestType           String
-  positionId            String?
-  positionTitle         String
-  costCenter            String
-  costCenterDesc        String    @default("")
-  reportsToEmail        String
-  positionType          String    @default("REGULAR")
-  justification         String
-  requestedByEmail      String
-  requestedByName       String
-  supervisorName        String
-  supervisorEmail       String
-  status                String    @default("NIVEL_1_PENDIENTE")
-  currentApprovalLevel  Int       @default(1)
-  approvedAt            DateTime?
-  hiredEmployeeId       String?
-  hiredAt               DateTime?
-  cancelledAt           DateTime?
-  cancelReason          String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String    @id @default(uuid())
+  requestType          String
+  positionId           String?
+  positionTitle        String
+  costCenter           String
+  costCenterDesc       String    @default("")
+  reportsToEmail       String
+  positionType         String    @default("REGULAR")
+  justification        String
+  requestedByEmail     String
+  requestedByName      String
+  supervisorName       String
+  supervisorEmail      String
+  status               String    @default("NIVEL_1_PENDIENTE")
+  currentApprovalLevel Int       @default(1)
+  approvedAt           DateTime?
+  hiredEmployeeId      String?
+  hiredAt              DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   position      OrgPosition? @relation(fields: [positionId], references: [id])
   hiredEmployee Employee?    @relation("StaffRequestHire", fields: [hiredEmployeeId], references: [id])
@@ -274,379 +246,12 @@ model StaffRequest {
   @@index([positionId])
 }
 
-// ── Payroll (Planilla) Models ──────────────────────────────────────
-
-model PayrollPeriod {
-  id            String    @id @default(uuid())
-  periodYear    Int
-  periodMonth   Int
-  periodType    String    @default("MENSUAL")
-  startDate     DateTime
-  endDate       DateTime
-  paymentDate   DateTime?
-  status        String    @default("ABIERTO")
-  calculatedAt  DateTime?
-  calculatedBy  String?
-  closedAt      DateTime?
-  closedBy      String?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  details PayrollDetail[]
-  batches PayrollBatch[]
-
-  @@unique([periodYear, periodMonth, periodType])
-  @@index([status])
-}
-
-model PayrollDetail {
-  id                    String    @id @default(uuid())
-  periodId              String
-  employeeId            String
-  baseSalary            Float
-  daysWorked            Float     @default(30)
-  pensionSystem         String    @default("AFP")
-  pensionProvider       String    @default("PRIMA")
-  hasDependents         Boolean   @default(false)
-  totalIngresos         Float     @default(0)
-  totalDescuentos       Float     @default(0)
-  totalAportesEmpleador Float     @default(0)
-  netoAPagar            Float     @default(0)
-  status                String    @default("CALCULADO")
-  inputSnapshot         String?
-  batchId               String?
-  isExcluded            Boolean   @default(false)
-  exclusionReason       String?
-  excludedBy            String?
-  excludedAt            DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  period   PayrollPeriod       @relation(fields: [periodId], references: [id])
-  employee Employee            @relation(fields: [employeeId], references: [id])
-  batch    PayrollBatch?       @relation(fields: [batchId], references: [id])
-  lines    PayrollDetailLine[]
-
-  @@unique([periodId, employeeId])
-  @@index([periodId])
-  @@index([employeeId])
-  @@index([batchId])
-}
-
-model PayrollDetailLine {
-  id               String    @id @default(uuid())
-  detailId         String
-  conceptCode      String
-  conceptName      String
-  category         String
-  calcBase         Float?
-  calcRate         Float?
-  calcFormula      String?
-  amount           Float
-  autoAmount       Float?
-  isAdjusted       Boolean   @default(false)
-  adjustedBy       String?
-  adjustedAt       DateTime?
-  adjustmentReason String?
-  displayOrder     Int       @default(0)
-  createdAt        DateTime  @default(now())
-
-  detail PayrollDetail @relation(fields: [detailId], references: [id], onDelete: Cascade)
-
-  @@index([detailId])
-  @@index([conceptCode])
-}
-
-model PayrollLegalParam {
-  id          String    @id @default(uuid())
-  paramKey    String
-  paramValue  Float
-  validFrom   DateTime
-  validTo     DateTime?
-  description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@unique([paramKey, validFrom])
-  @@index([paramKey])
-}
-
-model PayrollAdjustmentLog {
-  id             String   @id @default(uuid())
-  detailLineId   String
-  periodId       String
-  employeeId     String
-  employeeName   String
-  employeeCode   String
-  conceptCode    String
-  conceptName    String
-  autoAmount     Float
-  adjustedAmount Float
-  adjustedBy     String
-  adjustedAt     DateTime @default(now())
-  reason         String?
-
-  @@index([periodId])
-  @@index([employeeId])
-}
-
-// ── Payment Batches ──────────────────────────────────────────────────
-
-model PayrollBatch {
-  id                    String    @id @default(uuid())
-  periodId              String
-  batchNumber           Int
-  status                String    @default("BORRADOR")
-  totalEmployees        Int       @default(0)
-  totalNeto             Float     @default(0)
-  currentApprovalLevel  Int       @default(0)
-  notes                 String?
-  bbvaFileName          String?
-  bbvaFileGeneratedAt   DateTime?
-  bbvaFileGeneratedBy   String?
-  createdAt             DateTime  @default(now())
-  createdBy             String
-  updatedAt             DateTime  @updatedAt
-
-  period  PayrollPeriod   @relation(fields: [periodId], references: [id])
-  details PayrollDetail[]
-
-  @@index([periodId])
-  @@index([status])
-}
-
-// ── Work Shifts & Employee Payroll Master & Attendance ─────────────
-
-model WorkShift {
-  id              String    @id @default(uuid())
-  code            String    @unique
-  name            String
-  startTime       String
-  endTime         String
-  breakMinutes    Int       @default(0)
-  effectiveHours  Float
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  employees Employee[]
-}
-
-
-model AttendanceRecord {
-  id                String    @id @default(uuid())
-  employeeId        String
-  employeeCode      String
-  employeeName      String
-  date              DateTime
-  clockIn           DateTime?
-  clockOut          DateTime?
-  hoursWorked       Float     @default(0)
-  scheduledHours    Float     @default(8)
-  overtimeHours     Float     @default(0)
-  tardinessMinutes  Int       @default(0)
-  isAbsent          Boolean   @default(false)
-  isHoliday         Boolean   @default(false)
-  source            String    @default("BIOMETRICO")
-  periodYear        Int
-  periodMonth       Int
-  createdAt         DateTime  @default(now())
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-
-  @@unique([employeeId, date])
-  @@index([periodYear, periodMonth])
-}
-
-// ── FEC (Financiando el Crecimiento) Models ──────────────────────────
-
-model FecCompany {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  code        String   @unique  // e.g. "WODEN-PE", "WODEN-CO"
-  currency    String   @default("USD") // Default project currency (PEN, COP, BRL, USD, etc.)
-  country     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  ideas            FecIdea[]
-  userAccess       FecUserCompanyAccess[]
-  payrollEmployees Employee[] @relation("EmployeePayrollCompany")
-}
-
-model FecUserCompanyAccess {
-  id          String   @id @default(uuid())
-  employeeId  String
-  companyId   String
-  createdAt   DateTime @default(now())
-
-  employee    Employee   @relation(fields: [employeeId], references: [id])
-  company     FecCompany @relation(fields: [companyId], references: [id])
-
-  @@unique([employeeId, companyId])
-  @@index([employeeId])
-  @@index([companyId])
-}
-
-model FecExchangeRate {
-  id          String   @id @default(uuid())
-  currency    String   // Local currency code (PEN, COP, BRL, etc.)
-  periodYear  Int
-  periodMonth Int
-  rateToUsd   Float    // 1 local currency = X USD (e.g. 1 PEN = 0.27 USD)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([currency, periodYear, periodMonth])
-  @@index([currency])
-}
-
-model FecArea {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  ideas       FecIdea[]
-  roleAssignments FecRoleAssignment[]
-}
-
-model FecRoleAssignment {
-  id          String   @id @default(uuid())
-  employeeId  String
-  role        String   // ANALISTA_FINANCIERO or RESPONSABLE_AREA
-  areaId      String?  // null for ANALISTA_FINANCIERO (global), required for RESPONSABLE_AREA
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  area        FecArea? @relation(fields: [areaId], references: [id])
-
-  @@unique([employeeId, role, areaId])
-  @@index([employeeId])
-  @@index([role])
-}
-
-model FecIdea {
-  id                      String    @id @default(uuid())
-  code                    String    @unique  // Auto-generated: FEC-YYYY-NNN
-  title                   String
-  description             String
-  ideaType                String    // AHORRO or USO
-  status                  String    @default("ESTUDIAR") // ESTUDIAR, FIRME, IMPLEMENTADA, CANCELADA, SUSPENDIDA
-  areaId                  String
-  companyId               String    // Company this idea belongs to
-  leadEmployeeId          String    // Lider/Responsable
-  projectCurrency         String    @default("USD") // Project currency (PEN, COP, BRL, USD, etc.)
-
-  // Financial classification
-  plLine                  String?   // Linea del P&G
-  bsLine                  String?   // Linea del Balance
-  cfLine                  String?   // Linea del Flujo de Caja
-
-  // Dates
-  implementationDate      DateTime?  // Fecha de implementacion (locked after save, only analyst can change)
-  revisedImplementationDate DateTime? // Fecha revisada (editable by users)
-
-  // 12-month values in Project Currency (from implementation date)
-  month1Value             Float     @default(0)
-  month2Value             Float     @default(0)
-  month3Value             Float     @default(0)
-  month4Value             Float     @default(0)
-  month5Value             Float     @default(0)
-  month6Value             Float     @default(0)
-  month7Value             Float     @default(0)
-  month8Value             Float     @default(0)
-  month9Value             Float     @default(0)
-  month10Value            Float     @default(0)
-  month11Value            Float     @default(0)
-  month12Value            Float     @default(0)
-
-  // 12-month values in USD
-  month1Usd               Float     @default(0)
-  month2Usd               Float     @default(0)
-  month3Usd               Float     @default(0)
-  month4Usd               Float     @default(0)
-  month5Usd               Float     @default(0)
-  month6Usd               Float     @default(0)
-  month7Usd               Float     @default(0)
-  month8Usd               Float     @default(0)
-  month9Usd               Float     @default(0)
-  month10Usd              Float     @default(0)
-  month11Usd              Float     @default(0)
-  month12Usd              Float     @default(0)
-
-  // Calculated fields - Project Currency
-  annualizedValue         Float     @default(0) // avg monthly * 12
-  effectiveValue          Float     @default(0) // sum of 12 months
-
-  // Calculated fields - USD
-  annualizedValueUsd      Float     @default(0)
-  effectiveValueUsd       Float     @default(0)
-
-  // Approval tracking
-  analystApprovalRequired Boolean   @default(false)
-  analystApprovedBy       String?
-  analystApprovedAt       DateTime?
-
-  // Audit
-  createdByEmail          String
-  createdByName           String
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  cancelledAt             DateTime?
-  cancelReason            String?
-  suspendedAt             DateTime?
-  suspendReason           String?
-
-  area                    FecArea    @relation(fields: [areaId], references: [id])
-  company                 FecCompany @relation(fields: [companyId], references: [id])
-  leadEmployee            Employee   @relation("FecIdeaLead", fields: [leadEmployeeId], references: [id])
-  statusHistory           FecStatusHistory[]
-
-  @@index([status])
-  @@index([areaId])
-  @@index([companyId])
-  @@index([leadEmployeeId])
-  @@index([implementationDate])
-}
-
-model FecStatusHistory {
-  id            String   @id @default(uuid())
-  ideaId        String
-  fromStatus    String
-  toStatus      String
-  changedByEmail String
-  changedByName  String
-  reason        String?
-  createdAt     DateTime @default(now())
-
-  idea          FecIdea  @relation(fields: [ideaId], references: [id])
-
-  @@index([ideaId])
-}
-
-model FecFinancialLine {
-  id          String   @id @default(uuid())
-  type        String   // "PL" (P&G), "BS" (Balance), "CF" (Cash Flow)
-  name        String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([type, name])
-  @@index([type])
-}
-
 model UserMenuGrant {
-  id          String   @id @default(uuid())
-  userEmail   String
-  menuPath    String
-  grantedBy   String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  userEmail String
+  menuPath  String
+  grantedBy String
+  createdAt DateTime @default(now())
 
   @@unique([userEmail, menuPath])
   @@index([userEmail])
@@ -671,38 +276,38 @@ model RecuperoImport {
 }
 
 model RecuperoTask {
-  id                String    @id @default(uuid())
-  importId          String
-  externalId        String?
-  contrato          String?
-  grupo             String?
-  documentoId       String?
-  agenteCampo       String
-  cedulaUsuario     String?
-  nombreUsuario     String?
-  direccion         String?
-  ciudad            String?
-  departamento      String?
-  latitud           Float?
-  longitud          Float?
-  tarea             String?
-  fechaCierre       DateTime?
-  estado            String?
-  latitudCierre     Float?
-  longitudCierre    Float?
-  tipoCierre        String?
-  tipoBase          String?
-  distanciaMetros   Float?
-  esQuemada         Boolean   @default(false)
-  esAgendado        Boolean   @default(true)
-  coordStatus       String    @default("VALID")
-  latitudExtraida   Float?
-  longitudExtraida  Float?
-  periodoYear       Int
-  periodoMonth      Int
-  periodoDay        Int       @default(1)
-  equiposRecuperados Int      @default(0)
-  createdAt         DateTime  @default(now())
+  id                 String    @id @default(uuid())
+  importId           String
+  externalId         String?
+  contrato           String?
+  grupo              String?
+  documentoId        String?
+  agenteCampo        String
+  cedulaUsuario      String?
+  nombreUsuario      String?
+  direccion          String?
+  ciudad             String?
+  departamento       String?
+  latitud            Float?
+  longitud           Float?
+  tarea              String?
+  fechaCierre        DateTime?
+  estado             String?
+  latitudCierre      Float?
+  longitudCierre     Float?
+  tipoCierre         String?
+  tipoBase           String?
+  distanciaMetros    Float?
+  esQuemada          Boolean   @default(false)
+  esAgendado         Boolean   @default(true)
+  coordStatus        String    @default("VALID")
+  latitudExtraida    Float?
+  longitudExtraida   Float?
+  periodoYear        Int
+  periodoMonth       Int
+  periodoDay         Int       @default(1)
+  equiposRecuperados Int       @default(0)
+  createdAt          DateTime  @default(now())
 
   import  RecuperoImport   @relation(fields: [importId], references: [id], onDelete: Cascade)
   equipos RecuperoEquipo[]
@@ -719,21 +324,21 @@ model RecuperoTask {
 }
 
 model RecuperoEquipo {
-  id              String       @id @default(uuid())
+  id              String   @id @default(uuid())
   taskId          String
   serial          String?
   serialAdicional String?
-  tarjetas        Boolean      @default(false)
-  controles       Boolean      @default(false)
-  fuentes         Boolean      @default(false)
-  cablePoder      Boolean      @default(false)
-  cableFibra      Boolean      @default(false)
-  cableHdmi       Boolean      @default(false)
-  cablesRca       Boolean      @default(false)
-  cablesRj11      Boolean      @default(false)
-  cablesRj45      Boolean      @default(false)
-  gestionExitosa  Boolean      @default(false)
-  createdAt       DateTime     @default(now())
+  tarjetas        Boolean  @default(false)
+  controles       Boolean  @default(false)
+  fuentes         Boolean  @default(false)
+  cablePoder      Boolean  @default(false)
+  cableFibra      Boolean  @default(false)
+  cableHdmi       Boolean  @default(false)
+  cablesRca       Boolean  @default(false)
+  cablesRj11      Boolean  @default(false)
+  cablesRj45      Boolean  @default(false)
+  gestionExitosa  Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   task RecuperoTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
@@ -745,49 +350,49 @@ model RecuperoEquipo {
 // ==========================================
 
 model ClientDataImport {
-  id              String   @id @default(uuid())
-  source          String   // "CLARO" | "DIRECTV"
-  fileName        String
-  receptionDate   DateTime // defaults to upload date, user can override
-  uploadDate      DateTime @default(now())
-  totalRows       Int      @default(0)
-  validPhoneRows  Int      @default(0)
-  incompletePhoneRows Int  @default(0)
-  invalidPhoneRows Int     @default(0)
-  missingPhoneRows Int     @default(0)
-  validCoordsRows Int      @default(0)
-  coordsInPeruRows Int     @default(0)
-  coordsOutsidePeruRows Int @default(0)
-  validAddressRows Int     @default(0)
-  extractedCoordsRows Int  @default(0)
-  importedByEmail String?
-  records         ClientDataRecord[]
+  id                    String             @id @default(uuid())
+  source                String // "CLARO" | "DIRECTV"
+  fileName              String
+  receptionDate         DateTime // defaults to upload date, user can override
+  uploadDate            DateTime           @default(now())
+  totalRows             Int                @default(0)
+  validPhoneRows        Int                @default(0)
+  incompletePhoneRows   Int                @default(0)
+  invalidPhoneRows      Int                @default(0)
+  missingPhoneRows      Int                @default(0)
+  validCoordsRows       Int                @default(0)
+  coordsInPeruRows      Int                @default(0)
+  coordsOutsidePeruRows Int                @default(0)
+  validAddressRows      Int                @default(0)
+  extractedCoordsRows   Int                @default(0)
+  importedByEmail       String?
+  records               ClientDataRecord[]
 }
 
 model ClientDataRecord {
-  id             String  @id @default(uuid())
-  importId       String
-  rowNumber      Int
+  id        String @id @default(uuid())
+  importId  String
+  rowNumber Int
 
   // Normalized fields
-  externalId     String? // idagenda (Claro) or NroWO (DirecTV)
-  customerId     String? // codcli (Claro) or NroCliente (DirecTV)
-  customerName   String? // nomcli (Claro) or ApellidoNombre (DirecTV)
-  address        String? // direccion (Claro) or DireccionIns (DirecTV)
-  district       String? // distrito (Claro) or LocalidadIns (DirecTV)
-  province       String? // nomprov/nomdepa (Claro) or ProvinciaIns (DirecTV)
-  department     String? // nomdepa (Claro) or CiudadIns (DirecTV)
-  workOrderType  String? // tipo (Claro) or WOType (DirecTV)
-  status         String? // estado (Claro) or EstadoWO (DirecTV)
+  externalId    String? // idagenda (Claro) or NroWO (DirecTV)
+  customerId    String? // codcli (Claro) or NroCliente (DirecTV)
+  customerName  String? // nomcli (Claro) or ApellidoNombre (DirecTV)
+  address       String? // direccion (Claro) or DireccionIns (DirecTV)
+  district      String? // distrito (Claro) or LocalidadIns (DirecTV)
+  province      String? // nomprov/nomdepa (Claro) or ProvinciaIns (DirecTV)
+  department    String? // nomdepa (Claro) or CiudadIns (DirecTV)
+  workOrderType String? // tipo (Claro) or WOType (DirecTV)
+  status        String? // estado (Claro) or EstadoWO (DirecTV)
 
   // Phone fields
-  phone1         String?
-  phone2         String?
+  phone1 String?
+  phone2 String?
 
   // Coordinates
-  latitude       Float?
-  longitude      Float?
-  coordsSource   String  @default("MISSING") // DIRECT | EXTRACTED_ADDRESS | EXTRACTED_OTHER | MISSING
+  latitude     Float?
+  longitude    Float?
+  coordsSource String @default("MISSING") // DIRECT | EXTRACTED_ADDRESS | EXTRACTED_OTHER | MISSING
 
   // Equipment
   equipmentType  String? // equ_sot/prod_pri (Claro) or IRD/MODEM (DirecTV)
@@ -796,16 +401,16 @@ model ClientDataRecord {
   technology     String? // FTTH/HFC (Claro) or from DirecTV
 
   // Quality flags
-  hasValidPhone   Boolean @default(false)
-  phoneStatus     String  @default("MISSING") // VALID | INCOMPLETE | INVALID | MISSING
-  hasValidCoords  Boolean @default(false)
-  coordsInPeru    Boolean @default(false) // coords within Peru boundaries
+  hasValidPhone     Boolean @default(false)
+  phoneStatus       String  @default("MISSING") // VALID | INCOMPLETE | INVALID | MISSING
+  hasValidCoords    Boolean @default(false)
+  coordsInPeru      Boolean @default(false) // coords within Peru boundaries
   coordsOutsidePeru Boolean @default(false) // has coords but outside Peru
-  hasValidAddress Boolean @default(false)
-  coordsExtracted Boolean @default(false) // coords were found embedded in text
+  hasValidAddress   Boolean @default(false)
+  coordsExtracted   Boolean @default(false) // coords were found embedded in text
 
   // Raw data
-  rawData        String  @default("{}")
+  rawData String @default("{}")
 
   import ClientDataImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 
@@ -923,7 +528,7 @@ model RutaProgramacion {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  agente  RutaAgente @relation(fields: [agenteId], references: [id])
+  agente  RutaAgente   @relation(fields: [agenteId], references: [id])
   paradas RutaParada[]
 
   @@index([agenteId])
@@ -962,13 +567,13 @@ model RutaParada {
 }
 
 model RutaExportConfig {
-  id        String   @id @default(uuid())
-  name      String   @unique
+  id         String   @id @default(uuid())
+  name       String   @unique
   fieldOrder String
-  delimiter String   @default(",")
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  delimiter  String   @default(",")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ==========================================
@@ -977,7 +582,7 @@ model RutaExportConfig {
 
 model RemanufacturaImport {
   id              String   @id @default(uuid())
-  source          String   // "OSCM" | "WMS"
+  source          String // "OSCM" | "WMS"
   fileName        String
   totalRows       Int      @default(0)
   importedRows    Int      @default(0)
@@ -993,53 +598,53 @@ model RemanufacturaImport {
 }
 
 model RemanufacturaTransaccion {
-  id                        String    @id @default(uuid())
-  importId                  String
-  source                    String    // "OSCM" | "WMS"
+  id       String @id @default(uuid())
+  importId String
+  source   String // "OSCM" | "WMS"
 
   // Core fields
-  fechaTransaccion          DateTime?
-  transaccionId             String?
-  tipoTransaccion           String?
-  numeroEnvio               String?
-  numeroSerie               String?   // Equipment serial number (key for tracking)
+  fechaTransaccion DateTime?
+  transaccionId    String?
+  tipoTransaccion  String?
+  numeroEnvio      String?
+  numeroSerie      String? // Equipment serial number (key for tracking)
 
   // Equipment classification
-  codigoCategoria           String?   // e.g. "DECO"
-  familiaEquipo             String?   // e.g. "HD ONLY", "HD DVR"
+  codigoCategoria String? // e.g. "DECO"
+  familiaEquipo   String? // e.g. "HD ONLY", "HD DVR"
 
   // Normalized client name (IQ Electronics/Woden/DirecTV → DIRECTV)
-  clienteNormalizado        String?
+  clienteNormalizado String?
 
   // Organization movement
-  orgOrigen                 String?
-  nombreOrgOrigen           String?
-  subinvOrigen              String?
-  locatorOrigen             String?
-  orgDestino                String?
-  nombreOrgDestino          String?
-  subinvDestino             String?
-  locatorDestino            String?
+  orgOrigen        String?
+  nombreOrgOrigen  String?
+  subinvOrigen     String?
+  locatorOrigen    String?
+  orgDestino       String?
+  nombreOrgDestino String?
+  subinvDestino    String?
+  locatorDestino   String?
 
   // Diagnosis & Repair
-  estado                    String?
-  falla                     String?   // OXIDO, NO_ENCIENDE, NO_RECIBE_SENAL, etc.
-  etapa                     String?   // INGRESO, DIAGNOSTICO, REPARACION, SALIDA
-  resultadoDiagnostico      String?   // SIN_FALLA, CON_FALLA
+  estado               String?
+  falla                String? // OXIDO, NO_ENCIENDE, NO_RECIBE_SENAL, etc.
+  etapa                String? // INGRESO, DIAGNOSTICO, REPARACION, SALIDA
+  resultadoDiagnostico String? // SIN_FALLA, CON_FALLA
 
   // Quantities & references
-  elementosTransaccionados  Int       @default(0)
-  referenciaTransaccion     String?
-  usuario                   String?
+  elementosTransaccionados Int     @default(0)
+  referenciaTransaccion    String?
+  usuario                  String?
 
   // Equipment identifiers
-  smartCardSerial           String?
-  macAddress                String?
-  ibsAccountNumber          String?
-  ridNumber                 String?
+  smartCardSerial  String?
+  macAddress       String?
+  ibsAccountNumber String?
+  ridNumber        String?
 
   // Raw data for unmapped fields
-  rawData                   String    @default("{}")
+  rawData String @default("{}")
 
   import RemanufacturaImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 
@@ -1053,344 +658,6 @@ model RemanufacturaTransaccion {
   @@index([familiaEquipo])
   @@index([source])
   @@index([clienteNormalizado])
-}
-
-// ==========================================
-// MRP — Material Requirements Planning
-// ==========================================
-
-model MrpEquipment {
-  id               String  @id @default(uuid())
-  code             String  @unique
-  name             String
-  description      String?
-  category         String?
-  recoveryYieldPct Float   @default(0)
-  bomBaseQty       Float   @default(1)  // How many finished units 1 BOM set produces
-  isActive         Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  equipmentRutas    MrpEquipmentRuta[]
-  bomItems          MrpBomItem[] @relation("EquipmentBom")
-  usedAsSubAssembly MrpBomItem[] @relation("SubAssembly")
-  demandForecasts   MrpDemandForecast[]
-  recoveryForecasts MrpRecoveryForecast[]
-  productionPlans   MrpProductionPlan[]
-}
-
-model MrpUnitOfMeasure {
-  id           String  @id @default(uuid())
-  code         String  @unique
-  name         String
-  abbreviation String
-  isActive     Boolean @default(true)
-}
-
-// Independent Material Master — catalog of all raw materials and components
-model MrpMaterial {
-  id               String  @id @default(uuid())
-  code             String  @unique
-  name             String
-  description      String?
-  unitOfMeasure    String  @default("unit")
-  unitCost         Float   @default(0)
-  costPerQty       Float   @default(1)  // Price is per this many units (e.g., 1=per unit, 1000=per 1000 units)
-  leadTimeDays     Int     @default(0)
-  safetyStockQty   Float   @default(0)
-  abcClass         String?
-  recoveryYieldPct Float?
-  isRecoverable    Boolean @default(false)
-  isActive         Boolean @default(true)
-
-  mainSupplierId   String?
-  mainSupplier     MrpSupplier? @relation("MainSupplier", fields: [mainSupplierId], references: [id])
-
-  backupSupplierId String?
-  backupSupplier   MrpSupplier? @relation("BackupSupplier", fields: [backupSupplierId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bomItems           MrpBomItem[]
-  supplierItems      MrpSupplierItem[]
-  inventorySnapshots MrpInventorySnapshot[]
-  purchasePlans      MrpPurchasePlan[]
-
-  @@index([mainSupplierId])
-  @@index([backupSupplierId])
-}
-
-// BOM — links Equipment to Materials OR sub-assembly Equipment
-model MrpBomItem {
-  id              String @id @default(uuid())
-  quantityPerUnit Float  @default(1)
-  qtyPer          Float  @default(1)  // This quantity is per how many equipment units (1, 100, 1000...)
-
-  equipmentId String
-  equipment   MrpEquipment @relation("EquipmentBom", fields: [equipmentId], references: [id], onDelete: Cascade)
-
-  // Either a material OR a child equipment (sub-assembly), not both
-  materialId       String?
-  material         MrpMaterial?  @relation(fields: [materialId], references: [id], onDelete: Cascade)
-
-  childEquipmentId String?
-  childEquipment   MrpEquipment? @relation("SubAssembly", fields: [childEquipmentId], references: [id])
-
-  parentBomItemId String?
-  parentBomItem   MrpBomItem?  @relation("BomHierarchy", fields: [parentBomItemId], references: [id])
-  children        MrpBomItem[] @relation("BomHierarchy")
-  @@index([equipmentId])
-  @@index([materialId])
-  @@index([parentBomItemId])
-}
-
-model MrpSubProcess {
-  id                 String  @id @default(uuid())
-  code               String  @unique
-  name               String
-  description        String?
-  defaultSequence    Int     @default(0)
-  capacityPerHour    Float   @default(1)
-  stationCount       Int     @default(1)   // Number of physical workstations
-  personnelPerStation Int    @default(1)   // People needed per station
-  requiresSpecialist Boolean @default(false)
-  isActive           Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  rutaSteps       MrpRutaStep[]
-  productionPlans MrpProductionPlan[]
-}
-
-model MrpRuta {
-  id          String  @id @default(uuid())
-  code        String  @unique
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  steps        MrpRutaStep[] @relation("RutaSteps")
-  referencedBy MrpRutaStep[] @relation("RutaChildren")
-  equipmentRutas MrpEquipmentRuta[]
-}
-
-// Junction: assigns one or more Rutas to an Equipment in sequence
-model MrpEquipmentRuta {
-  id            String @id @default(uuid())
-  sequenceOrder Int
-
-  equipmentId String
-  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-
-  rutaId String
-  ruta   MrpRuta @relation(fields: [rutaId], references: [id], onDelete: Cascade)
-
-  @@unique([equipmentId, rutaId])
-  @@index([equipmentId])
-}
-
-model MrpRutaStep {
-  id                String  @id @default(uuid())
-  sequenceOrder     Int
-  laborHoursPerUnit Float   @default(0)
-  isParallel        Boolean @default(false)
-
-  rutaId       String
-  ruta         MrpRuta       @relation("RutaSteps", fields: [rutaId], references: [id], onDelete: Cascade)
-
-  // Either a sub-process step OR a reference to another ruta (composable)
-  subProcessId String?
-  subProcess   MrpSubProcess? @relation(fields: [subProcessId], references: [id], onDelete: Cascade)
-
-  childRutaId  String?
-  childRuta    MrpRuta?       @relation("RutaChildren", fields: [childRutaId], references: [id])
-
-  @@index([rutaId])
-  @@index([childRutaId])
-}
-
-model MrpSupplier {
-  id          String  @id @default(uuid())
-  name        String
-  contactName String?
-  email       String?
-  phone       String?
-  country     String?
-  currency    String  @default("USD")
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  supplierItems      MrpSupplierItem[]
-  mainMaterials      MrpMaterial[] @relation("MainSupplier")
-  backupMaterials    MrpMaterial[] @relation("BackupSupplier")
-}
-
-model MrpSupplierItem {
-  id              String  @id @default(uuid())
-  unitOfMeasure   String  @default("unit")
-  purchaseUnit    String?
-  purchaseUnitQty Float   @default(1)
-  unitCost        Float   @default(0)
-  moq             Float   @default(1)
-  isPreferred     Boolean @default(false)
-
-  supplierId  String
-  supplier    MrpSupplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-
-  materialId  String
-  material    MrpMaterial  @relation(fields: [materialId], references: [id], onDelete: Cascade)
-
-  purchasePlans MrpPurchasePlan[]
-
-  @@unique([supplierId, materialId])
-  @@index([materialId])
-}
-
-model MrpShiftConfig {
-  id             String  @id @default(uuid())
-  name           String
-  startTime      String
-  endTime        String
-  costMultiplier Float   @default(1.0)
-  isActive       Boolean @default(true)
-
-  productionPlans MrpProductionPlan[]
-}
-
-model MrpWorkingCalendar {
-  id          String  @id @default(uuid())
-  month       Int
-  year        Int
-  workingDays Int     @default(22)
-  holidays    String?
-
-  @@unique([month, year])
-}
-
-model MrpDemandForecast {
-  id       String @id @default(uuid())
-  month    Int
-  year     Int
-  quantity Float
-
-  equipmentId String
-  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-
-  uploadedAt      DateTime @default(now())
-  uploadedByEmail String?
-
-  @@unique([equipmentId, month, year])
-  @@index([month, year])
-}
-
-model MrpInventorySnapshot {
-  id             String @id @default(uuid())
-  quantityOnHand Float
-  month          Int
-  year           Int
-
-  materialId String
-  material   MrpMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
-
-  uploadedAt      DateTime @default(now())
-  uploadedByEmail String?
-
-  @@unique([materialId, month, year])
-  @@index([month, year])
-}
-
-model MrpRecoveryForecast {
-  id            String @id @default(uuid())
-  month         Int
-  year          Int
-  incomingUnits Float
-
-  equipmentId String
-  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-
-  uploadedAt      DateTime @default(now())
-  uploadedByEmail String?
-
-  @@unique([equipmentId, month, year])
-  @@index([month, year])
-}
-
-model MrpRun {
-  id            String  @id @default(uuid())
-  name          String
-  startMonth    Int
-  startYear     Int
-  horizonMonths Int     @default(12)
-  status        String  @default("DRAFT")
-  notes         String?
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdByEmail  String?
-
-  purchasePlans   MrpPurchasePlan[]
-  productionPlans MrpProductionPlan[]
-}
-
-model MrpPurchasePlan {
-  id                  String    @id @default(uuid())
-  month               Int
-  year                Int
-  inventoryInitial    Float     @default(0)
-  quantityNeeded      Float
-  quantityRecovered   Float     @default(0)
-  quantityToPurchase  Float
-  inventoryFinal      Float     @default(0)
-  productionOutput    Float     @default(0)
-  orderDate           DateTime?
-  deliveryDate        DateTime?
-  unitCost            Float     @default(0)
-  totalCost           Float     @default(0)
-
-  mrpRunId String
-  mrpRun   MrpRun @relation(fields: [mrpRunId], references: [id], onDelete: Cascade)
-
-  materialId String
-  material   MrpMaterial @relation(fields: [materialId], references: [id])
-
-  supplierItemId String?
-  supplierItem   MrpSupplierItem? @relation(fields: [supplierItemId], references: [id])
-
-  @@index([mrpRunId])
-  @@index([month, year])
-}
-
-model MrpProductionPlan {
-  id                 String  @id @default(uuid())
-  month              Int
-  year               Int
-  unitsToProcess     Float
-  laborHoursRequired Float
-  headcountRequired  Float
-  isSpecialist       Boolean @default(false)
-
-  mrpRunId String
-  mrpRun   MrpRun @relation(fields: [mrpRunId], references: [id], onDelete: Cascade)
-
-  equipmentId String
-  equipment   MrpEquipment @relation(fields: [equipmentId], references: [id])
-
-  subProcessId String
-  subProcess   MrpSubProcess @relation(fields: [subProcessId], references: [id])
-
-  shiftId String?
-  shift   MrpShiftConfig? @relation(fields: [shiftId], references: [id])
-
-  @@index([mrpRunId])
-  @@index([month, year])
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1412,17 +679,17 @@ model PostventaFeriado {
 }
 
 model PostventaTatConfig {
-  id                  String   @id @default(uuid())
-  segmento            String   @unique
-  tatMaximoGarantia   Float    @default(5)
-  tatObjetivoWoden    Float    @default(3)
-  tatObjetivoLab      Float    @default(1)
-  consideraSabados    Boolean  @default(false)
-  consideraDomingos   Boolean  @default(false)
-  consideraFeriados   Boolean  @default(false)
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(uuid())
+  segmento          String   @unique
+  tatMaximoGarantia Float    @default(5)
+  tatObjetivoWoden  Float    @default(3)
+  tatObjetivoLab    Float    @default(1)
+  consideraSabados  Boolean  @default(false)
+  consideraDomingos Boolean  @default(false)
+  consideraFeriados Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([segmento])
 }
@@ -1458,30 +725,30 @@ model PostventaOrden {
   pais         String? @default("PERU")
 
   // Process dates
-  preorden           DateTime?
-  ingreso            DateTime?
-  ingresoUsuario     String?
-  envio              DateTime?
-  envioUsuario       String?
-  diagnostico        DateTime?
-  diagnosticoUsuario String?
-  revision           DateTime?
-  fechaPendiente     DateTime?
-  fechaEscalado      DateTime?
-  fechaCotizado      DateTime?
+  preorden            DateTime?
+  ingreso             DateTime?
+  ingresoUsuario      String?
+  envio               DateTime?
+  envioUsuario        String?
+  diagnostico         DateTime?
+  diagnosticoUsuario  String?
+  revision            DateTime?
+  fechaPendiente      DateTime?
+  fechaEscalado       DateTime?
+  fechaCotizado       DateTime?
   fechaFinanciamiento DateTime?
-  fechaDevolucion    DateTime?
-  entregaAlmacen     DateTime?
-  fechaIrreparable   DateTime?
-  reparacion         DateTime?
-  estadoFinal        String?
-  reparacionUsuario  String?
-  calidad            DateTime?
-  calidadUsuario     String?
-  retorno            DateTime?
-  retornoUsuario     String?
-  entrega            DateTime?
-  entregaUsuario     String?
+  fechaDevolucion     DateTime?
+  entregaAlmacen      DateTime?
+  fechaIrreparable    DateTime?
+  reparacion          DateTime?
+  estadoFinal         String?
+  reparacionUsuario   String?
+  calidad             DateTime?
+  calidadUsuario      String?
+  retorno             DateTime?
+  retornoUsuario      String?
+  entrega             DateTime?
+  entregaUsuario      String?
 
   // Status
   condicionIngreso   String?
@@ -1492,34 +759,35 @@ model PostventaOrden {
   gestionable        String?
   condicionCalculada String?
 
-  // Location
+  // Location & Channel
   ciudadHomologada String?
   tipoDeZona       String?
+  canal            String? // B2B or B2C, derived from sucursal
 
   // Pre-calculated TAT from file
-  targetTatGarantias    Float?
-  tatGarantiasArchivo   Float?
-  cumplTatGarantia      String?
-  targetTatLaboratorio  Float?
-  tatWodenArchivo       Float?
-  cumplTatWoden         String?
-  tatLaboratorioArchivo Float?
-  cumplTatLaboratorio   String?
+  targetTatGarantias     Float?
+  tatGarantiasArchivo    Float?
+  cumplTatGarantia       String?
+  targetTatLaboratorio   Float?
+  tatWodenArchivo        Float?
+  cumplTatWoden          String?
+  tatLaboratorioArchivo  Float?
+  cumplTatLaboratorio    String?
   tiempoEsperaReparacion Float?
-  desvioTatGarantias    Float?
+  desvioTatGarantias     Float?
 
   // Calculated TATs (by engine)
-  tatGarantiasCalc       Float?
-  tatWodenCalc           Float?
-  tatLaboratorioCalc     Float?
-  tatIngresoADiag        Float?
-  tatDiagAReparacion     Float?
-  tatReparacionACalidad  Float?
-  tatCalidadARetorno     Float?
-  tatRetornoAEntrega     Float?
-  cumplTatGarantiaCalc   Boolean?
-  cumplTatWodenCalc      Boolean?
-  cumplTatLabCalc        Boolean?
+  tatGarantiasCalc      Float?
+  tatWodenCalc          Float?
+  tatLaboratorioCalc    Float?
+  tatIngresoADiag       Float?
+  tatDiagAReparacion    Float?
+  tatReparacionACalidad Float?
+  tatCalidadARetorno    Float?
+  tatRetornoAEntrega    Float?
+  cumplTatGarantiaCalc  Boolean?
+  cumplTatWodenCalc     Boolean?
+  cumplTatLabCalc       Boolean?
 
   // Period fields
   periodoIngreso  String?
@@ -1552,6 +820,7 @@ model PostventaOrden {
   @@index([gestionable])
   @@index([ciudadHomologada])
   @@index([tipoDeZona])
+  @@index([canal])
   @@index([anoIng, mesIng])
   @@index([anoCierre, mesCierre])
   @@index([odsNumero])
