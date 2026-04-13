@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth";
 import { promises as fs } from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 const DB_PATH = path.join(process.cwd(), "prisma", "dev.db");
 const BACKUPS_DIR = path.join(process.cwd(), "backups");
 

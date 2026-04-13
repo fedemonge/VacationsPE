@@ -9,6 +9,8 @@ import {
 } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const SESSION_COOKIE = "vacaciones_session";
 
 // GET: return current session

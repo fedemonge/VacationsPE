@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession, hashPassword } from "@/lib/auth";
 import type { UserRole } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_PASSWORD = "Woden123";
 
 const VALID_ROLES: UserRole[] = [

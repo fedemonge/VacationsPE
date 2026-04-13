@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ensureRecuperoTables } from "@/lib/recupero/ensure-tables";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/recupero/cobertura
  * Coverage report based on field service data (RecuperoImport → RecuperoTask).

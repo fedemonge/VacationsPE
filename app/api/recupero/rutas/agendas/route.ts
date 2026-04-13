@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth";
 import { ensureRecuperoTables } from "@/lib/recupero/ensure-tables";
 import { parseScoreAgendas } from "@/lib/recupero/score-agenda-parser";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const session = await getSession();
   if (!session) {

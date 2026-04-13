@@ -4,6 +4,8 @@ import { getSession } from "@/lib/auth";
 import { parseRemanufacturaFile } from "@/lib/remanufactura/parser";
 import { RemanufacturaSource } from "@/lib/remanufactura/types";
 
+export const dynamic = "force-dynamic";
+
 // Allow large file uploads (WMS files can be 150MB+)
 export const maxDuration = 300; // 5 minutes
 
